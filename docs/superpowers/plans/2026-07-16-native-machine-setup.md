@@ -233,7 +233,8 @@ packages:
       - sevenzip     # 공식 7-Zip (p7zip은 구버전 fork). 바이너리 7zz
       - xz
       - rsync
-      - rename
+      # rename은 여기(공통) 금지: Linux에서 rustup 의존성 util-linux와 `rename` 바이너리 충돌
+      # → darwin_only_formulae + apt.common으로 분리
       - dos2unix
       - watch
       - fswatch
@@ -254,6 +255,7 @@ packages:
     darwin_only_formulae:
       - git          # Ubuntu는 bootstrap에서 apt로 설치
       - zsh          # macOS 기본 zsh 최신화
+      - rename       # Linux에선 util-linux와 충돌 → Ubuntu는 apt로 설치
       - coreutils
       - findutils
       - grep
@@ -321,6 +323,7 @@ packages:
     # desktop/WSL 공통 (시스템 통합 계층)
     common:
       - zsh              # brew zsh는 /etc/shells 문제로 apt 고정 (스펙 §6.1)
+      - rename           # brew rename은 util-linux(rustup 의존성)와 충돌 — apt(Perl rename)로 설치
       - build-essential
       - xclip
       - trash-cli        # nvim Snacks.explorer 안전 삭제 의존성
@@ -449,7 +452,7 @@ yq '.packages.fonts.nerd_zips | length' home/.chezmoidata/packages.yaml
 yq '.packages.deb[].dpkg_name' home/.chezmoidata/packages.yaml
 ```
 
-Expected: `44` / `40` / `14` / `obsidian`·`slack-desktop`·`discord` (에러 없이 출력)
+Expected: `43` / `40` / `14` / `obsidian`·`slack-desktop`·`discord` (에러 없이 출력)
 
 - [ ] **Step 3: chezmoi 데이터로 로드되는지 검증**
 
@@ -466,7 +469,7 @@ nix run nixpkgs#chezmoi -- --source . --config /tmp/czt/chezmoi.toml execute-tem
   '{{ .packages.fonts.nerd_version }} {{ len .packages.brew.formulae }}'
 ```
 
-Expected: `3.4.0 44`
+Expected: `3.4.0 43`
 
 - [ ] **Step 4: Commit**
 
