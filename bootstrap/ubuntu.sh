@@ -13,10 +13,17 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   gnupg software-properties-common
 
 # WSL: systemd 활성화 기록 (스펙 §10 — 담당: bootstrap)
+# 기존 wsl.conf의 [boot] 섹션/systemd= 키와 병합해 중복 섹션 헤더를 만들지 않는다.
 if grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then
-  if [ ! -f /etc/wsl.conf ] || ! grep -q "systemd=true" /etc/wsl.conf; then
+  if ! grep -qs "systemd=true" /etc/wsl.conf; then
     echo ">> [bootstrap] /etc/wsl.conf에 systemd=true 기록"
-    printf '[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf >/dev/null
+    if grep -qs '^[[:space:]]*systemd[[:space:]]*=' /etc/wsl.conf; then
+      sudo sed -i 's/^[[:space:]]*systemd[[:space:]]*=.*/systemd=true/' /etc/wsl.conf
+    elif grep -qs '^\[boot\]' /etc/wsl.conf; then
+      sudo sed -i '/^\[boot\]/a systemd=true' /etc/wsl.conf
+    else
+      printf '[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf >/dev/null
+    fi
   fi
 fi
 

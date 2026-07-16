@@ -8,7 +8,19 @@ REPO="${MACHINE_SETUP_REPO:-https://github.com/mandoo180/machine-setup.git}"
 if ! xcode-select -p >/dev/null 2>&1; then
   echo ">> [bootstrap] Xcode Command Line Tools 설치 (GUI 창 승인 필요)"
   xcode-select --install
-  until xcode-select -p >/dev/null 2>&1; do sleep 10; done
+  # 30분 타임아웃 — 사용자가 GUI 설치를 취소하면 무한 대기하지 않는다
+  waited=0
+  until xcode-select -p >/dev/null 2>&1; do
+    sleep 10
+    waited=$((waited + 10))
+    if [ "$waited" -ge 1800 ]; then
+      echo "!! CLT 설치가 30분 내 완료되지 않았습니다. 설치 완료 후 이 스크립트를 다시 실행하십시오." >&2
+      exit 1
+    fi
+    if [ $((waited % 60)) -eq 0 ]; then
+      echo ">> CLT 설치 대기 중... (${waited}s)"
+    fi
+  done
 fi
 
 if [ ! -x /opt/homebrew/bin/brew ]; then
