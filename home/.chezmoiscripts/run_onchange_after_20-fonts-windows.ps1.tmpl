@@ -15,16 +15,28 @@ $zips = @(
 ) | Where-Object { $_ }
 
 foreach ($z in $zips) {
+  # 멱등 마커($marker)는 성공 시에만 존재해야 한다: 스테이징에 풀고 성공 시 이동,
+  # 실패 시 마커 제거 — Expand-Archive는 실패해도 대상 디렉터리를 만들기 때문.
   $marker = Join-Path $fontRoot $z
   if (Test-Path $marker) { continue }
   Write-Host ">> [20-fonts] $z v$nerdVer"
   $tmp = Join-Path $env:TEMP "$z.zip"
-  Invoke-WebRequest -Uri "https://github.com/ryanoasis/nerd-fonts/releases/download/v$nerdVer/$z.zip" -OutFile $tmp
-  Expand-Archive -Path $tmp -DestinationPath $marker -Force
-  Remove-Item $tmp
-  Get-ChildItem -Path $marker -Include '*.ttf','*.otf' -Recurse | ForEach-Object {
-    $name = "$($_.BaseName) (TrueType)"
-    New-ItemProperty -Path $regPath -Name $name -Value $_.FullName -PropertyType String -Force | Out-Null
+  $staging = Join-Path $env:TEMP "nf-$z"
+  try {
+    Invoke-WebRequest -Uri "https://github.com/ryanoasis/nerd-fonts/releases/download/v$nerdVer/$z.zip" -OutFile $tmp
+    if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
+    Expand-Archive -Path $tmp -DestinationPath $staging -Force
+    Move-Item -Path $staging -Destination $marker
+    Get-ChildItem -Path $marker -Include '*.ttf','*.otf' -Recurse | ForEach-Object {
+      $name = "$($_.BaseName) (TrueType)"
+      New-ItemProperty -Path $regPath -Name $name -Value $_.FullName -PropertyType String -Force | Out-Null
+    }
+  } catch {
+    if (Test-Path $marker) { Remove-Item -Recurse -Force $marker }
+    throw
+  } finally {
+    Remove-Item -Force -ErrorAction SilentlyContinue $tmp
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $staging
   }
 }
 Write-Host ">> [20-fonts-windows] done (새 앱 세션부터 인식)"
