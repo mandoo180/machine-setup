@@ -76,7 +76,7 @@ defaults write com.apple.menuextra.clock Show24Hour -bool true
 defaults write com.apple.menuextra.clock ShowDate -int 1
 defaults write com.apple.menuextra.clock ShowDayOfWeek -bool true
 defaults write com.apple.menuextra.clock ShowSeconds -bool false
-defaults write com.apple.screensaver askForPassword -int 1
+defaults write com.apple.screensaver askForPassword -bool true
 defaults write com.apple.screensaver askForPasswordDelay -int 5
 mkdir -p "$HOME/Pictures/Screenshots"
 defaults write com.apple.screencapture disable-shadow -bool true
@@ -100,7 +100,8 @@ if [ ! -f /etc/pam.d/sudo_local ] || ! grep -q pam_tid.so /etc/pam.d/sudo_local;
 fi
 
 # --- emacs-plus Emacs.app → /Applications (Spotlight) ---
-EMACS_APP="$(find /opt/homebrew/Cellar/emacs-plus@30 -maxdepth 2 -name "Emacs.app" -type d 2>/dev/null | head -1)"
+# `|| true`: Cellar 경로 부재 시 find가 exit 1 → pipefail로 스크립트 전체가 중단되는 것 방지
+EMACS_APP="$(find /opt/homebrew/Cellar/emacs-plus@30 -maxdepth 2 -name "Emacs.app" -type d 2>/dev/null | head -1 || true)"
 if [ -n "$EMACS_APP" ] && [ ! -d /Applications/Emacs.app ]; then
   echo ">> copying Emacs.app to /Applications"
   cp -R "$EMACS_APP" /Applications/
