@@ -19,7 +19,7 @@ if [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
 fi
 
 # emacs 30.x PPA (서드파티: ubuntuhandbook1)
-if ! ls /etc/apt/sources.list.d/ | grep -q ubuntuhandbook1; then
+if ! compgen -G "/etc/apt/sources.list.d/*ubuntuhandbook1*" > /dev/null; then
   sudo add-apt-repository -y ppa:ubuntuhandbook1/emacs
 fi
 
