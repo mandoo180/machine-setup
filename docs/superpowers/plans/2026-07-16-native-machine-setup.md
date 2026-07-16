@@ -1023,7 +1023,12 @@ git commit -m "feat: 폰트 설치 — Nerd Fonts v3.4.0 + cask/사용자레벨 
 set -euo pipefail
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
   echo ">> [25-oh-my-zsh] install (unattended)"
-  sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc
+  # 다운로드와 실행 분리: curl 실패가 sh -c ""(성공)로 삼켜져 run_once가
+  # 미설치 상태를 영구히 '완료'로 기록하는 것 방지
+  omz_installer="$(mktemp)"
+  curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o "$omz_installer"
+  sh "$omz_installer" --unattended --keep-zshrc
+  rm -f "$omz_installer"
 fi
 {{ if eq .chezmoi.os "linux" -}}
 # 기본 셸 전환 (apt zsh = /usr/bin/zsh, /etc/shells 등재 자동)
@@ -1119,7 +1124,7 @@ defaults write com.apple.menuextra.clock Show24Hour -bool true
 defaults write com.apple.menuextra.clock ShowDate -int 1
 defaults write com.apple.menuextra.clock ShowDayOfWeek -bool true
 defaults write com.apple.menuextra.clock ShowSeconds -bool false
-defaults write com.apple.screensaver askForPassword -int 1
+defaults write com.apple.screensaver askForPassword -bool true
 defaults write com.apple.screensaver askForPasswordDelay -int 5
 mkdir -p "$HOME/Pictures/Screenshots"
 defaults write com.apple.screencapture disable-shadow -bool true
@@ -1143,7 +1148,8 @@ if [ ! -f /etc/pam.d/sudo_local ] || ! grep -q pam_tid.so /etc/pam.d/sudo_local;
 fi
 
 # --- emacs-plus Emacs.app → /Applications (Spotlight) ---
-EMACS_APP="$(find /opt/homebrew/Cellar/emacs-plus@30 -maxdepth 2 -name "Emacs.app" -type d 2>/dev/null | head -1)"
+# `|| true`: Cellar 경로 부재 시 find가 exit 1 → pipefail로 스크립트 전체가 중단되는 것 방지
+EMACS_APP="$(find /opt/homebrew/Cellar/emacs-plus@30 -maxdepth 2 -name "Emacs.app" -type d 2>/dev/null | head -1 || true)"
 if [ -n "$EMACS_APP" ] && [ ! -d /Applications/Emacs.app ]; then
   echo ">> copying Emacs.app to /Applications"
   cp -R "$EMACS_APP" /Applications/
