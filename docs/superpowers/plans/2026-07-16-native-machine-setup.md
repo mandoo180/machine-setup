@@ -1483,10 +1483,17 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   gnupg software-properties-common
 
 # WSL: systemd 활성화 기록 (스펙 §10 — 담당: bootstrap)
+# 기존 wsl.conf의 [boot] 섹션/systemd= 키와 병합해 중복 섹션 헤더를 만들지 않는다.
 if grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then
-  if [ ! -f /etc/wsl.conf ] || ! grep -q "systemd=true" /etc/wsl.conf; then
+  if ! grep -qs "systemd=true" /etc/wsl.conf; then
     echo ">> [bootstrap] /etc/wsl.conf에 systemd=true 기록"
-    printf '[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf >/dev/null
+    if grep -qs '^[[:space:]]*systemd[[:space:]]*=' /etc/wsl.conf; then
+      sudo sed -i 's/^[[:space:]]*systemd[[:space:]]*=.*/systemd=true/' /etc/wsl.conf
+    elif grep -qs '^\[boot\]' /etc/wsl.conf; then
+      sudo sed -i '/^\[boot\]/a systemd=true' /etc/wsl.conf
+    else
+      printf '[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf >/dev/null
+    fi
   fi
 fi
 
@@ -1523,7 +1530,19 @@ REPO="${MACHINE_SETUP_REPO:-https://github.com/mandoo180/machine-setup.git}"
 if ! xcode-select -p >/dev/null 2>&1; then
   echo ">> [bootstrap] Xcode Command Line Tools 설치 (GUI 창 승인 필요)"
   xcode-select --install
-  until xcode-select -p >/dev/null 2>&1; do sleep 10; done
+  # 30분 타임아웃 — 사용자가 GUI 설치를 취소하면 무한 대기하지 않는다
+  waited=0
+  until xcode-select -p >/dev/null 2>&1; do
+    sleep 10
+    waited=$((waited + 10))
+    if [ "$waited" -ge 1800 ]; then
+      echo "!! CLT 설치가 30분 내 완료되지 않았습니다. 설치 완료 후 이 스크립트를 다시 실행하십시오." >&2
+      exit 1
+    fi
+    if [ $((waited % 60)) -eq 0 ]; then
+      echo ">> CLT 설치 대기 중... (${waited}s)"
+    fi
+  done
 fi
 
 if [ ! -x /opt/homebrew/bin/brew ]; then
