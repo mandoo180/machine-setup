@@ -1,0 +1,28 @@
+{{ if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+# packages.yaml 변경 시 재실행: {{ .packages | toJson | sha256sum }}
+set -euo pipefail
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+echo ">> [10-packages-darwin] brew bundle"
+brew bundle --file=/dev/stdin <<'BREWFILE'
+cask_args no_quarantine: true
+{{ range .packages.brew.taps -}}
+tap "{{ . }}"
+{{ end -}}
+{{ range .packages.brew.formulae -}}
+brew "{{ . }}"
+{{ end -}}
+{{ range .packages.brew.darwin_only_formulae -}}
+{{ if eq . "d12frosted/emacs-plus/emacs-plus@30" -}}
+brew "{{ . }}", args: ["with-xwidgets", "with-imagemagick"]
+{{ else -}}
+brew "{{ . }}"
+{{ end -}}
+{{ end -}}
+{{ range .packages.brew.casks -}}
+cask "{{ . }}"
+{{ end -}}
+BREWFILE
+echo ">> [10-packages-darwin] done"
+{{ end -}}
