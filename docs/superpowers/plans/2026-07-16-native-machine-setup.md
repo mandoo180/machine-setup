@@ -60,7 +60,7 @@ home
 - [ ] **Step 2: `home/.chezmoi.toml.tmpl` 작성**
 
 ```
-{{- $email := promptStringOnce . "email" "git email (personal: mandoo180@gmail.com / work: kyeongsoo@douzone.com)" -}}
+{{- $email := promptStringOnce . "email" "email" -}}
 {{- $isWSL := false -}}
 {{- if env "FORCE_WSL" -}}
 {{-   $isWSL = eq (env "FORCE_WSL") "true" -}}
@@ -72,7 +72,7 @@ home
     isWSL = {{ $isWSL }}
 ```
 
-주의: `.chezmoi.kernel`은 Linux에서만 존재하므로 반드시 `and (eq .chezmoi.os "linux") (...)` 가드 안에서만 접근한다.
+주의 2건: (1) `.chezmoi.kernel`은 Linux에서만 존재하므로 반드시 `and (eq .chezmoi.os "linux") (...)` 가드 안에서만 접근한다. (2) `promptStringOnce`의 프롬프트 문구는 반드시 `"email"` 그대로 둔다 — chezmoi의 `--promptString key=value` 주입은 **프롬프트 문구를 키로 매칭**하므로, 문구를 바꾸면 모든 테스트의 `--promptString email=...`이 무시된다(개인/회사 이메일 안내는 bootstrap이 init 직전에 echo로 출력, Task 10).
 
 - [ ] **Step 3: `home/.chezmoiignore` 작성**
 
@@ -130,7 +130,12 @@ if [ "${1:-}" = "--ps" ]; then
   done
 fi
 
-[ "$fail" -eq 0 ] && echo "LINT PASS" || { echo "LINT FAIL"; exit 1; }
+if [ "$fail" -eq 0 ]; then
+  echo "LINT PASS"
+else
+  echo "LINT FAIL"
+  exit 1
+fi
 ```
 
 - [ ] **Step 5: 린트 하네스 자체 검증**
@@ -1441,6 +1446,7 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 command -v chezmoi >/dev/null 2>&1 || brew install chezmoi
 
 echo ">> [bootstrap] chezmoi init --apply ($REPO)"
+echo ">> email 프롬프트에는 개인(mandoo180@gmail.com) 또는 회사(kyeongsoo@douzone.com) 주소를 입력하십시오"
 # CHEZMOI_EXTRA_ARGS: 비대화 실행용 (예: --promptString email=t@t.com — 스모크 테스트가 사용)
 # shellcheck disable=SC2086
 chezmoi init --apply "$REPO" ${CHEZMOI_EXTRA_ARGS:-}
@@ -1476,6 +1482,7 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 command -v chezmoi >/dev/null 2>&1 || brew install chezmoi
 
 echo ">> [bootstrap] chezmoi init --apply ($REPO)"
+echo ">> email 프롬프트에는 개인(mandoo180@gmail.com) 또는 회사(kyeongsoo@douzone.com) 주소를 입력하십시오"
 chezmoi init --apply "$REPO"
 
 echo ">> [bootstrap] 완료. 터미널을 재시작하십시오."
