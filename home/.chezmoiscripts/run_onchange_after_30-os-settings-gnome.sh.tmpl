@@ -1,0 +1,20 @@
+{{ if and (eq .chezmoi.os "linux") (not .isWSL) -}}
+#!/bin/bash
+set -euo pipefail
+if ! command -v gsettings >/dev/null 2>&1; then
+  echo ">> [30-os-settings-gnome] gsettings 없음 — 건너뜀 (GNOME 미설치 환경)"
+  exit 0
+fi
+echo ">> [30-os-settings-gnome] gsettings"
+gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+gsettings set org.gnome.desktop.interface clock-format '24h'
+gsettings set org.gnome.desktop.peripherals.keyboard repeat-interval 30
+gsettings set org.gnome.desktop.peripherals.keyboard delay 225
+gsettings set org.gnome.desktop.peripherals.mouse natural-scroll false
+gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll false
+
+if command -v timedatectl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+  sudo timedatectl set-timezone Asia/Seoul
+fi
+echo ">> [30-os-settings-gnome] done"
+{{ end -}}
