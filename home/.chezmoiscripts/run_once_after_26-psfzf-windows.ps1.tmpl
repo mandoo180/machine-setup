@@ -1,0 +1,16 @@
+{{ if eq .chezmoi.os "windows" -}}
+$ErrorActionPreference = 'Stop'
+Write-Host ">> [26-psfzf-windows] PSFzf 모듈"
+if (-not (Get-Module -ListAvailable -Name PSFzf)) {
+  Install-Module -Name PSFzf -Scope CurrentUser -Force
+}
+
+# OneDrive Documents 리디렉션 대응: $PROFILE이 배치 위치와 다르면 dot-source 스텁 생성
+$deployed = Join-Path $HOME 'Documents\PowerShell\Microsoft.PowerShell_profile.ps1'
+if (($PROFILE -ne $deployed) -and (-not (Test-Path $PROFILE))) {
+  New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) | Out-Null
+  Set-Content -Path $PROFILE -Value ". `"$deployed`""
+  Write-Host ">> \$PROFILE 스텁 생성: $PROFILE → $deployed"
+}
+Write-Host ">> [26-psfzf-windows] done"
+{{ end -}}
