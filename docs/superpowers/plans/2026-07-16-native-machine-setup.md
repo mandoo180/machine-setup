@@ -225,6 +225,7 @@ packages:
       - lazygit
       - git-delta
       - direnv
+      - wget         # macOS에 기본 부재 — brew로 전 플랫폼 커버
       - httpie
       - openssl@3
       - lsof
@@ -339,6 +340,7 @@ packages:
       - ibus-hangul
     wsl:
       - wslu             # wslview 등
+      - firefox          # Mozilla apt repo (10-packages가 WSL에서 설정 — 스펙 §6.2)
       - fcitx5
       - fcitx5-hangul
       - fcitx5-config-qt
@@ -452,7 +454,7 @@ yq '.packages.fonts.nerd_zips | length' home/.chezmoidata/packages.yaml
 yq '.packages.deb[].dpkg_name' home/.chezmoidata/packages.yaml
 ```
 
-Expected: `43` / `40` / `14` / `obsidian`·`slack-desktop`·`discord` (에러 없이 출력)
+Expected: `44` / `40` / `14` / `obsidian`·`slack-desktop`·`discord` (에러 없이 출력)
 
 - [ ] **Step 3: chezmoi 데이터로 로드되는지 검증**
 
@@ -469,7 +471,7 @@ nix run nixpkgs#chezmoi -- --source . --config /tmp/czt/chezmoi.toml execute-tem
   '{{ .packages.fonts.nerd_version }} {{ len .packages.brew.formulae }}'
 ```
 
-Expected: `3.4.0 43`
+Expected: `3.4.0 44`
 
 - [ ] **Step 4: Commit**
 
@@ -713,6 +715,15 @@ fi
 if [ ! -f /etc/apt/sources.list.d/tailscale.list ]; then
   curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
   curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
+fi
+{{ else -}}
+# firefox (WSL — 스펙 §6.2 "desktop/WSL 모두"): snap은 systemd 의존이라
+# Mozilla 공식 apt repo 사용 — 첫 부트(systemd 비활성)에서도 즉시 설치 가능
+if [ ! -f /etc/apt/sources.list.d/mozilla.list ]; then
+  sudo install -d -m 0755 /etc/apt/keyrings
+  curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc >/dev/null
+  echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | sudo tee /etc/apt/sources.list.d/mozilla.list >/dev/null
+  printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' | sudo tee /etc/apt/preferences.d/mozilla >/dev/null
 fi
 {{ end -}}
 
@@ -1276,6 +1287,9 @@ git commit -m "feat: oh-my-zsh 비대화식 설치 + OS 설정 (darwin 1:1/gnome
 ```
 {{ if eq .chezmoi.os "linux" -}}
 #!/bin/bash
+# systemd 상태를 렌더 본문에 포함 — WSL 첫 부트(비활성)→재시작(활성) 전이 시
+# run_onchange가 본문 변경을 감지해 재실행되어 서비스가 실제로 기동된다.
+# systemd: {{ output "sh" "-c" "test -d /run/systemd/system && echo up || echo down" | trim }}
 set -euo pipefail
 SYSTEMD_UP=0
 [ -d /run/systemd/system ] && SYSTEMD_UP=1
@@ -1317,7 +1331,7 @@ echo ">> [40-services-ubuntu] done"
 set -euo pipefail
 eval "$(/opt/homebrew/bin/brew shellenv)"
 echo ">> [40-services-darwin] colima (docker 엔진)"
-if ! brew services list | grep -E '^colima\s+started' >/dev/null 2>&1; then
+if ! brew services list | grep -E '^colima[[:space:]]+started' >/dev/null 2>&1; then
   brew services start colima
   echo ">> colima 최초 기동은 VM 생성으로 수 분 걸릴 수 있습니다"
 fi
@@ -1453,7 +1467,7 @@ $deployed = Join-Path $HOME 'Documents\PowerShell\Microsoft.PowerShell_profile.p
 if (($PROFILE -ne $deployed) -and (-not (Test-Path $PROFILE))) {
   New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) | Out-Null
   Set-Content -Path $PROFILE -Value ". `"$deployed`""
-  Write-Host ">> \$PROFILE 스텁 생성: $PROFILE → $deployed"
+  Write-Host ">> `$PROFILE 스텁 생성: $PROFILE → $deployed"
 }
 Write-Host ">> [26-psfzf-windows] done"
 {{ end -}}
@@ -1638,10 +1652,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/mandoo180/machine-setup/main
 ```
 
 ```powershell
-# Windows 11 (PowerShell)
+# Windows 11 (PowerShell) — fresh 머신엔 git이 없으므로 내장 curl.exe로 스크립트만 받는다
 Set-ExecutionPolicy -Scope Process Bypass -Force
-git clone https://github.com/mandoo180/machine-setup.git; .\machine-setup\bootstrap\windows.ps1
-# WSL까지: .\machine-setup\bootstrap\windows.ps1 -InstallWSL
+curl.exe -fsSLo windows.ps1 https://raw.githubusercontent.com/mandoo180/machine-setup/main/bootstrap/windows.ps1; .\windows.ps1
+# WSL까지: .\windows.ps1 -InstallWSL
 ```
 
 최초 실행 시 git email을 묻는다 (개인 mandoo180@gmail.com / 회사 kyeongsoo@douzone.com).
