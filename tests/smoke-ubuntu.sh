@@ -22,6 +22,11 @@ run_context() {
       apt-get update -qq && apt-get install -y -qq sudo >/dev/null
       useradd -m -s /bin/bash tester
       echo "tester ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/tester
+      # ubuntu:24.04 이미지는 UID 1000을 내장 ubuntu 유저가 선점하므로 tester는 1001을 받는다.
+      # 호스트에서 bind mount된 /repo(:ro)는 호스트 UID 소유라 tester와 불일치 —
+      # git의 dubious-ownership 보호(CVE-2022-24765)에 걸려 clone이 거부된다.
+      # git 설치 전에도 읽히는 시스템 설정 파일에 안전 예외를 등록해 둔다.
+      printf "[safe]\n\tdirectory = /repo\n" >> /etc/gitconfig
       sudo -u tester -H \
         env MACHINE_SETUP_REPO=/repo FORCE_WSL="$FORCE_WSL" \
             CHEZMOI_EXTRA_ARGS="--promptString email=t@t.com" \
