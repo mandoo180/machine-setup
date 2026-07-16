@@ -20,6 +20,7 @@
 - 커밋 메시지에 `Co-Authored-By:` 트레일러 절대 금지 (사용자 전역 지침)
 - chezmoi source 디렉터리는 `home/` (`.chezmoiroot`로 지정)
 - 이 머신(NixOS-WSL)에서의 검증 도구: `nix run nixpkgs#chezmoi --`, `nix run nixpkgs#shellcheck --`, docker(설치됨), yq(설치됨). PowerShell 린트는 `mcr.microsoft.com/powershell` 컨테이너
+- **렌더링 검증 규칙**: `chezmoi execute-template --init`은 `.chezmoidata`를 로드하지 않는다(Task 2 리뷰에서 규명). 스크립트/dotfile 템플릿 렌더링은 반드시 `tests/render.sh <true|false> <file>`(임시 config 생성 → execute-template, Task 3에서 작성)를 사용한다. `--init` 직접 사용은 `.chezmoi.toml.tmpl` 자체를 검증할 때만
 - 확정된 패키지 ID (검증 완료 — 임의 변경 금지):
   - brew에서 `tldr`은 disabled → **`tlrc`** 사용. `p7zip` 대신 **`sevenzip`**. `bun`은 core formula. rustup formula는 **`rustup`**
   - Nerd Fonts asset명 함정: SauceCodePro → **`SourceCodePro.zip`**, Terminess → **`Terminus.zip`**
@@ -439,11 +440,16 @@ Expected: `44` / `40` / `14` / `obsidian`·`slack-desktop`·`discord` (에러 �
 
 - [ ] **Step 3: chezmoi 데이터로 로드되는지 검증**
 
+주의: `execute-template --init`은 `.chezmoidata`를 로드하지 않으므로 임시 config를 먼저 생성한다.
+
 Run:
 
 ```bash
-FORCE_WSL=false nix run nixpkgs#chezmoi -- --source ~/Projects/machine-setup \
-  execute-template --init --promptString email=t@t.com \
+cd ~/Projects/machine-setup
+mkdir -p /tmp/czt
+FORCE_WSL=false nix run nixpkgs#chezmoi -- init --source . --config /tmp/czt/chezmoi.toml \
+  --promptString email=t@t.com
+nix run nixpkgs#chezmoi -- --source . --config /tmp/czt/chezmoi.toml execute-template \
   '{{ .packages.fonts.nerd_version }} {{ len .packages.brew.formulae }}'
 ```
 
@@ -458,18 +464,41 @@ git commit -m "feat: packages.yaml — 전 플랫폼 패키지 목록 단일 소
 
 ---
 
-### Task 3: dotfiles — zshrc / git config / bat config
+### Task 3: dotfiles — zshrc / git config / bat config (+렌더링 헬퍼)
 
 **Files:**
+- Create: `tests/render.sh`
 - Create: `home/dot_zshrc.tmpl`
 - Create: `home/dot_config/git/config.tmpl`
 - Create: `home/dot_config/bat/config`
 
 **Interfaces:**
-- Consumes: `.email`, `.isWSL` (Task 1)
+- Consumes: `.email`, `.isWSL` (Task 1), `.packages` (Task 2)
 - Produces: `rebuild`/`update` alias 정의 — README(Task 10)가 문서화
+- Produces: `tests/render.sh <true|false> <template-file>` — 이후 모든 태스크의 렌더링 검증이 사용 (email은 `t@t.com` 고정)
 
-- [ ] **Step 1: `home/dot_zshrc.tmpl` 작성**
+- [ ] **Step 1: 렌더링 헬퍼 `tests/render.sh` 작성**
+
+```bash
+#!/usr/bin/env bash
+# 렌더링 헬퍼: isWSL 컨텍스트를 강제한 임시 config로 템플릿을 렌더링한다.
+# 사용법: bash tests/render.sh <true|false> <template-file>
+# 배경: execute-template --init은 .chezmoidata를 로드하지 않으므로,
+#       임시 config를 생성(init, apply 없음)한 뒤 execute-template을 쓴다.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+ctx="$1"
+file="$2"
+CZ="nix run nixpkgs#chezmoi --"
+command -v chezmoi >/dev/null 2>&1 && CZ="chezmoi"
+tmp="${TMPDIR:-/tmp}/cz-render-$ctx"
+mkdir -p "$tmp"
+FORCE_WSL="$ctx" $CZ init --source "$(pwd)" --config "$tmp/chezmoi.toml" \
+  --promptString email=t@t.com >/dev/null
+$CZ --source "$(pwd)" --config "$tmp/chezmoi.toml" execute-template < "$file"
+```
+
+- [ ] **Step 2: `home/dot_zshrc.tmpl` 작성**
 
 ```
 # Managed by chezmoi — 수정은 ~/Projects/machine-setup에서.
@@ -540,7 +569,7 @@ command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 
 제외 확인: `em`/`emc` 함수, alias `e`/`v`/`ccc`, Jira env — 스펙 §2 사용자 결정으로 포함하지 않는다.
 
-- [ ] **Step 2: `home/dot_config/git/config.tmpl` 작성**
+- [ ] **Step 3: `home/dot_config/git/config.tmpl` 작성**
 
 ```
 [user]
@@ -564,50 +593,45 @@ command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 	helper = store
 ```
 
-- [ ] **Step 3: `home/dot_config/bat/config` 작성**
+- [ ] **Step 4: `home/dot_config/bat/config` 작성**
 
 ```
 --theme="Dracula"
 ```
 
-- [ ] **Step 4: 렌더링 검증 — WSL/desktop 양쪽 컨텍스트**
+- [ ] **Step 5: 렌더링 검증 — WSL/desktop 양쪽 컨텍스트**
 
 Run:
 
 ```bash
 cd ~/Projects/machine-setup
-CZ="nix run nixpkgs#chezmoi --"
 # WSL 컨텍스트: fcitx5 블록 있어야 함
-FORCE_WSL=true $CZ --source . execute-template --init --promptString email=t@t.com \
-  "$(cat home/dot_zshrc.tmpl)" | grep -c "fcitx5 -d"
+bash tests/render.sh true home/dot_zshrc.tmpl | grep -c "fcitx5 -d"
 # desktop 컨텍스트: fcitx5 블록 없어야 함
-FORCE_WSL=false $CZ --source . execute-template --init --promptString email=t@t.com \
-  "$(cat home/dot_zshrc.tmpl)" | grep -c "fcitx5 -d" || true
-# git config에 email 주입 확인
-FORCE_WSL=false $CZ --source . execute-template --init --promptString email=work@douzone.com \
-  "$(cat home/dot_config/git/config.tmpl)" | grep "email"
+bash tests/render.sh false home/dot_zshrc.tmpl | grep -c "fcitx5 -d" || true
+# git config에 email 주입 확인 (헬퍼는 email=t@t.com 고정)
+bash tests/render.sh false home/dot_config/git/config.tmpl | grep "email ="
 ```
 
-Expected: 첫 grep은 `1`, 둘째 grep은 `0`, 셋째는 `	email = work@douzone.com`
+Expected: 첫 grep은 `1`, 둘째 grep은 `0`, 셋째는 `	email = t@t.com`
 
-- [ ] **Step 5: 렌더링된 zshrc 문법 검증**
+- [ ] **Step 6: 렌더링된 zshrc 문법 검증**
 
 Run:
 
 ```bash
-FORCE_WSL=true nix run nixpkgs#chezmoi -- --source . execute-template --init \
-  --promptString email=t@t.com "$(cat home/dot_zshrc.tmpl)" > /tmp/zshrc-rendered
+bash tests/render.sh true home/dot_zshrc.tmpl > /tmp/zshrc-rendered
 zsh -n /tmp/zshrc-rendered && echo SYNTAX-OK
 bash tests/lint.sh
 ```
 
 Expected: `SYNTAX-OK`, `LINT PASS`
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add home/dot_zshrc.tmpl home/dot_config/git/config.tmpl home/dot_config/bat/config
-git commit -m "feat: dotfiles — zshrc/git/bat (home.nix 이관, 개인 항목 제외)"
+git add tests/render.sh home/dot_zshrc.tmpl home/dot_config/git/config.tmpl home/dot_config/bat/config
+git commit -m "feat: dotfiles — zshrc/git/bat + 렌더링 헬퍼 (home.nix 이관, 개인 항목 제외)"
 ```
 
 ---
@@ -717,12 +741,11 @@ Run:
 
 ```bash
 cd ~/Projects/machine-setup
-CZ="nix run nixpkgs#chezmoi --"
 SRC=home/.chezmoiscripts/run_onchange_before_10-packages-ubuntu.sh.tmpl
 # desktop: tailscale repo 포함, wsl 패키지 미포함
-FORCE_WSL=false $CZ --source . execute-template --init --promptString email=t@t.com "$(cat $SRC)" | grep -c "tailscale"
+bash tests/render.sh false $SRC | grep -c "tailscale"
 # WSL: tailscale 없음, fcitx5 있음
-FORCE_WSL=true $CZ --source . execute-template --init --promptString email=t@t.com "$(cat $SRC)" > /tmp/r-wsl.sh
+bash tests/render.sh true $SRC > /tmp/r-wsl.sh
 grep -c "tailscale" /tmp/r-wsl.sh || true
 grep -c "fcitx5" /tmp/r-wsl.sh
 bash -n /tmp/r-wsl.sh && echo SYNTAX-OK
@@ -823,9 +846,7 @@ Run:
 ```bash
 cd ~/Projects/machine-setup
 # darwin 스크립트는 linux 컨텍스트에서 빈 본문이어야 함
-FORCE_WSL=false nix run nixpkgs#chezmoi -- --source . execute-template --init \
-  --promptString email=t@t.com \
-  "$(cat home/.chezmoiscripts/run_onchange_before_10-packages-darwin.sh.tmpl)" | wc -c
+bash tests/render.sh false home/.chezmoiscripts/run_onchange_before_10-packages-darwin.sh.tmpl | wc -c
 bash tests/lint.sh
 bash tests/lint.sh --ps
 ```
@@ -938,9 +959,7 @@ Run:
 
 ```bash
 cd ~/Projects/machine-setup
-FORCE_WSL=false nix run nixpkgs#chezmoi -- --source . execute-template --init \
-  --promptString email=t@t.com \
-  "$(cat home/.chezmoiscripts/run_onchange_after_20-fonts-ubuntu.sh.tmpl)" > /tmp/r-fonts.sh
+bash tests/render.sh false home/.chezmoiscripts/run_onchange_after_20-fonts-ubuntu.sh.tmpl > /tmp/r-fonts.sh
 bash -n /tmp/r-fonts.sh && echo SYNTAX-OK
 grep -c "nerd-fonts/releases/download/v3.4.0" /tmp/r-fonts.sh
 grep -c "SourceCodePro.zip" /tmp/r-fonts.sh   # SauceCodePro가 아님을 확인
@@ -1169,12 +1188,9 @@ Run:
 
 ```bash
 cd ~/Projects/machine-setup
-CZ="nix run nixpkgs#chezmoi --"
 # gnome 스크립트: desktop 컨텍스트에서만 본문 렌더링
-FORCE_WSL=false $CZ --source . execute-template --init --promptString email=t@t.com \
-  "$(cat home/.chezmoiscripts/run_onchange_after_30-os-settings-gnome.sh.tmpl)" | grep -c gsettings
-FORCE_WSL=true $CZ --source . execute-template --init --promptString email=t@t.com \
-  "$(cat home/.chezmoiscripts/run_onchange_after_30-os-settings-gnome.sh.tmpl)" | wc -c
+bash tests/render.sh false home/.chezmoiscripts/run_onchange_after_30-os-settings-gnome.sh.tmpl | grep -c gsettings
+bash tests/render.sh true home/.chezmoiscripts/run_onchange_after_30-os-settings-gnome.sh.tmpl | wc -c
 bash tests/lint.sh && bash tests/lint.sh --ps
 ```
 
@@ -1303,10 +1319,9 @@ Run:
 
 ```bash
 cd ~/Projects/machine-setup
-CZ="nix run nixpkgs#chezmoi --"
 SVC=home/.chezmoiscripts/run_onchange_after_40-services-ubuntu.sh.tmpl
 # WSL: tailscale/ssh 하드닝 없음 + wsl --shutdown 안내 있음
-FORCE_WSL=true $CZ --source . execute-template --init --promptString email=t@t.com "$(cat $SVC)" > /tmp/r-svc.sh
+bash tests/render.sh true $SVC > /tmp/r-svc.sh
 grep -c "tailscale" /tmp/r-svc.sh || true
 grep -c "wsl --shutdown" /tmp/r-svc.sh
 bash -n /tmp/r-svc.sh && echo SYNTAX-OK
@@ -1733,8 +1748,7 @@ Run:
 cd ~/Projects/machine-setup
 for f in home/.chezmoiscripts/*.tmpl home/dot_zshrc.tmpl home/dot_config/git/config.tmpl; do
   for fw in true false; do
-    FORCE_WSL=$fw nix run nixpkgs#chezmoi -- --source . execute-template --init \
-      --promptString email=t@t.com "$(cat "$f")" > /dev/null \
+    bash tests/render.sh "$fw" "$f" > /dev/null \
       || { echo "RENDER FAIL: $f (FORCE_WSL=$fw)"; exit 1; }
   done
 done && echo RENDER-OK
