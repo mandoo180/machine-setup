@@ -103,11 +103,13 @@ SHELLCHECK="nix run nixpkgs#shellcheck --"
 command -v shellcheck >/dev/null 2>&1 && SHELLCHECK="shellcheck"
 
 # 템플릿 → 린트 가능 텍스트 변환:
-# 순수 템플릿 태그 줄({{ if }}, {{ range }}, {{ end }} 등)은 빈 줄로 제거하고
-# (그대로 두면 PowerShell 배열 리터럴 등에서 ParseError를 일으킴),
+# 순수 템플릿 태그 줄({{ if }}, {{ range }}, {{ end }} 등)은 줄 자체를 삭제하고
+# (빈 줄로 남기면 1행 {{ if }} 뒤의 shebang이 SC1128에 걸리고,
+#  그대로 두면 PowerShell 배열 리터럴에서 ParseError를 일으킴),
 # 인라인 태그({{ . }} 등)만 __TMPL__ 플레이스홀더로 치환한다.
+# 실제 chezmoi 렌더링의 `-}}` 트리밍과 동등한 효과.
 strip_tmpl() {
-  sed -e 's/^[[:space:]]*{{[^}]*}}[[:space:]]*$//' -e 's/{{[^}]*}}/__TMPL__/g' "$1"
+  sed -e '/^[[:space:]]*{{[^}]*}}[[:space:]]*$/d' -e 's/{{[^}]*}}/__TMPL__/g' "$1"
 }
 
 fail=0
