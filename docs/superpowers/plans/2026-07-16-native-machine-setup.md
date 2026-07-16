@@ -736,10 +736,10 @@ echo ">> [10-packages-ubuntu] official debs (desktop)"
 if ! dpkg -s {{ .dpkg_name }} >/dev/null 2>&1; then
   tmp_deb="$(mktemp --suffix=.deb)"
 {{ if eq .name "obsidian" -}}
-  ver="$(curl -fsSL https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest | jq -r '.tag_name | ltrimstr("v")')"
-  curl -fsSL -o "$tmp_deb" "https://github.com/obsidianmd/obsidian-releases/releases/download/v${ver}/obsidian_${ver}_amd64.deb"
+  ver="$(curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest | jq -r '.tag_name | ltrimstr("v")')"
+  curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL -o "$tmp_deb" "https://github.com/obsidianmd/obsidian-releases/releases/download/v${ver}/obsidian_${ver}_amd64.deb"
 {{ else -}}
-  curl -fsSL -o "$tmp_deb" "{{ .url }}"
+  curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL -o "$tmp_deb" "{{ .url }}"
 {{ end -}}
   sudo apt-get install -y "$tmp_deb"
   rm -f "$tmp_deb"
