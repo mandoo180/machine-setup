@@ -1,4 +1,4 @@
-{{- $email := promptStringOnce . "email" "git email (personal: mandoo180@gmail.com / work: kyeongsoo@douzone.com)" -}}
+{{- $email := promptStringOnce . "email" "email" -}}
 {{- $isWSL := false -}}
 {{- if env "FORCE_WSL" -}}
 {{-   $isWSL = eq (env "FORCE_WSL") "true" -}}

@@ -37,4 +37,9 @@ if [ "${1:-}" = "--ps" ]; then
   done
 fi
 
-[ "$fail" -eq 0 ] && echo "LINT PASS" || { echo "LINT FAIL"; exit 1; }
+if [ "$fail" -eq 0 ]; then
+  echo "LINT PASS"
+else
+  echo "LINT FAIL"
+  exit 1
+fi
