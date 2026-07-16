@@ -10,7 +10,7 @@ $deployed = Join-Path $HOME 'Documents\PowerShell\Microsoft.PowerShell_profile.p
 if (($PROFILE -ne $deployed) -and (-not (Test-Path $PROFILE))) {
   New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) | Out-Null
   Set-Content -Path $PROFILE -Value ". `"$deployed`""
-  Write-Host ">> \$PROFILE 스텁 생성: $PROFILE → $deployed"
+  Write-Host ">> `$PROFILE 스텁 생성: $PROFILE → $deployed"
 }
 Write-Host ">> [26-psfzf-windows] done"
 {{ end -}}

@@ -48,6 +48,15 @@ if [ ! -f /etc/apt/sources.list.d/tailscale.list ]; then
   curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
   curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
 fi
+{{ else -}}
+# firefox (WSL — 스펙 §6.2 "desktop/WSL 모두"): snap은 systemd 의존이라
+# Mozilla 공식 apt repo 사용 — 첫 부트(systemd 비활성)에서도 즉시 설치 가능
+if [ ! -f /etc/apt/sources.list.d/mozilla.list ]; then
+  sudo install -d -m 0755 /etc/apt/keyrings
+  curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc >/dev/null
+  echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | sudo tee /etc/apt/sources.list.d/mozilla.list >/dev/null
+  printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' | sudo tee /etc/apt/preferences.d/mozilla >/dev/null
+fi
 {{ end -}}
 
 echo ">> [10-packages-ubuntu] apt install"

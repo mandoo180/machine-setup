@@ -24,6 +24,7 @@ packages:
       - lazygit
       - git-delta
       - direnv
+      - wget         # macOS에 기본 부재 — brew로 전 플랫폼 커버
       - httpie
       - openssl@3
       - lsof
@@ -138,6 +139,7 @@ packages:
       - ibus-hangul
     wsl:
       - wslu             # wslview 등
+      - firefox          # Mozilla apt repo (10-packages가 WSL에서 설정 — 스펙 §6.2)
       - fcitx5
       - fcitx5-hangul
       - fcitx5-config-qt

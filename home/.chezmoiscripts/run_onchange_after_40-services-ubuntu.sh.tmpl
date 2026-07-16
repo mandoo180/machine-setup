@@ -1,5 +1,8 @@
 {{ if eq .chezmoi.os "linux" -}}
 #!/bin/bash
+# systemd 상태를 렌더 본문에 포함 — WSL 첫 부트(비활성)→재시작(활성) 전이 시
+# run_onchange가 본문 변경을 감지해 재실행되어 서비스가 실제로 기동된다.
+# systemd: {{ output "sh" "-c" "test -d /run/systemd/system && echo up || echo down" | trim }}
 set -euo pipefail
 SYSTEMD_UP=0
 [ -d /run/systemd/system ] && SYSTEMD_UP=1

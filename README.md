@@ -14,10 +14,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/mandoo180/machine-setup/main
 ```
 
 ```powershell
-# Windows 11 (PowerShell)
+# Windows 11 (PowerShell) — fresh 머신엔 git이 없으므로 내장 curl.exe로 스크립트만 받는다
 Set-ExecutionPolicy -Scope Process Bypass -Force
-git clone https://github.com/mandoo180/machine-setup.git; .\machine-setup\bootstrap\windows.ps1
-# WSL까지: .\machine-setup\bootstrap\windows.ps1 -InstallWSL
+curl.exe -fsSLo windows.ps1 https://raw.githubusercontent.com/mandoo180/machine-setup/main/bootstrap/windows.ps1; .\windows.ps1
+# WSL까지: .\windows.ps1 -InstallWSL
 ```
 
 최초 실행 시 git email을 묻는다 (개인 mandoo180@gmail.com / 회사 kyeongsoo@douzone.com).
