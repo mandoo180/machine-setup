@@ -1314,7 +1314,13 @@ if ! command -v gsettings >/dev/null 2>&1; then
   echo ">> [50-input-method-gnome] gsettings 없음 — 건너뜀"
   exit 0
 fi
-current="$(gsettings get org.gnome.desktop.input-sources sources)"
+# `|| true`: 비GUI 세션(dbus 미초기화 등)에서 gsettings 실패가 apply 전체를 죽이지 않도록
+current="$(gsettings get org.gnome.desktop.input-sources sources 2>/dev/null || true)"
+if [ -z "$current" ]; then
+  echo ">> [50-input-method-gnome] gsettings 조회 실패(비GUI 세션?) — 수동 등록 필요:"
+  echo ">>   gsettings set org.gnome.desktop.input-sources sources \"[('xkb', 'us'), ('ibus', 'hangul')]\""
+  exit 0
+fi
 if ! echo "$current" | grep -q "hangul"; then
   echo ">> [50-input-method-gnome] ibus-hangul 입력 소스 등록"
   gsettings set org.gnome.desktop.input-sources sources "[('xkb', 'us'), ('ibus', 'hangul')]"
