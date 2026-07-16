@@ -1754,7 +1754,10 @@ run_context() {
     '
 }
 
-for ctx in "${@:-wsl desktop}"; do run_context "$ctx"; done
+# "${@:-wsl desktop}"는 무인자 시 한 단어로 확장되는 함정이 있어 배열로 처리
+contexts=("$@")
+[ ${#contexts[@]} -eq 0 ] && contexts=(wsl desktop)
+for ctx in "${contexts[@]}"; do run_context "$ctx"; done
 echo "SMOKE PASS"
 ```
 
