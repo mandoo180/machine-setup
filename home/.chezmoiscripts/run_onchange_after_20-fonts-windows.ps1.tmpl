@@ -1,0 +1,31 @@
+{{ if eq .chezmoi.os "windows" -}}
+# fonts 목록 변경 시 재실행: {{ .packages.fonts | toJson | sha256sum }}
+$ErrorActionPreference = 'Stop'
+$nerdVer = '{{ .packages.fonts.nerd_version }}'
+$fontRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts'
+$regPath = 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
+New-Item -ItemType Directory -Force -Path $fontRoot | Out-Null
+if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+
+$zips = @(
+{{ range .packages.fonts.nerd_zips -}}
+  '{{ . }}',
+{{ end -}}
+  $null
+) | Where-Object { $_ }
+
+foreach ($z in $zips) {
+  $marker = Join-Path $fontRoot $z
+  if (Test-Path $marker) { continue }
+  Write-Host ">> [20-fonts] $z v$nerdVer"
+  $tmp = Join-Path $env:TEMP "$z.zip"
+  Invoke-WebRequest -Uri "https://github.com/ryanoasis/nerd-fonts/releases/download/v$nerdVer/$z.zip" -OutFile $tmp
+  Expand-Archive -Path $tmp -DestinationPath $marker -Force
+  Remove-Item $tmp
+  Get-ChildItem -Path $marker -Include '*.ttf','*.otf' -Recurse | ForEach-Object {
+    $name = "$($_.BaseName) (TrueType)"
+    New-ItemProperty -Path $regPath -Name $name -Value $_.FullName -PropertyType String -Force | Out-Null
+  }
+}
+Write-Host ">> [20-fonts-windows] done (새 앱 세션부터 인식)"
+{{ end -}}

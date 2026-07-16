@@ -1,0 +1,9 @@
+{{ if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+# font casks 변경 시 재실행: {{ .packages.brew.font_casks | toJson | sha256sum }}
+set -euo pipefail
+eval "$(/opt/homebrew/bin/brew shellenv)"
+echo ">> [20-fonts-darwin] font casks"
+brew install --cask --quiet {{ range .packages.brew.font_casks }}{{ . }} {{ end }}
+echo ">> [20-fonts-darwin] done"
+{{ end -}}
