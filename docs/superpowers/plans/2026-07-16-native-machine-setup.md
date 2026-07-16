@@ -974,12 +974,13 @@ Run:
 cd ~/Projects/machine-setup
 bash tests/render.sh false home/.chezmoiscripts/run_onchange_after_20-fonts-ubuntu.sh.tmpl > /tmp/r-fonts.sh
 bash -n /tmp/r-fonts.sh && echo SYNTAX-OK
-grep -c "nerd-fonts/releases/download/v3.4.0" /tmp/r-fonts.sh
-grep -c "SourceCodePro.zip" /tmp/r-fonts.sh   # SauceCodePro가 아님을 확인
+grep -c 'NERD_VER="3.4.0"' /tmp/r-fonts.sh                    # 버전 고정 확인 (URL은 ${NERD_VER} 변수 참조)
+grep -c "nerd-fonts/releases/download" /tmp/r-fonts.sh        # 14개 폰트 블록 = 14개 다운로드 URL
+grep -c "SourceCodePro.zip" /tmp/r-fonts.sh                   # SauceCodePro가 아님을 확인 (블록당 3줄 매치)
 bash tests/lint.sh && bash tests/lint.sh --ps
 ```
 
-Expected: `SYNTAX-OK`, 첫 grep `14`, 둘째 grep `1`, `LINT PASS` 두 번
+Expected: `SYNTAX-OK`, 첫 grep `1`, 둘째 grep `14`, 셋째 grep `3`, `LINT PASS` 두 번
 
 - [ ] **Step 5: Commit**
 
