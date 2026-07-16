@@ -1,0 +1,17 @@
+{{ if and (eq .chezmoi.os "linux") .isWSL -}}
+#!/bin/bash
+set -euo pipefail
+echo ">> [50-input-method-wsl] fcitx5 확인"
+if ! command -v fcitx5 >/dev/null 2>&1; then
+  echo "!! fcitx5 미설치 — 10-packages가 실패했는지 확인" >&2
+  exit 1
+fi
+cat <<'EOF'
+>> fcitx5 데몬은 zsh 시작 시 자동 기동됩니다 (WAYLAND_DISPLAY= 워크어라운드).
+>> 최초 1회 수동 설정:
+>>   1) exec zsh          # 셸 재시작 (fcitx5 자동 시작)
+>>   2) pgrep -a fcitx5   # 데몬 확인
+>>   3) fcitx5-configtool # Hangul 엔진 추가 + 전환 핫키 설정
+>> GUI 앱은 WSL 셸에서 실행해야 IM 환경변수를 상속합니다.
+EOF
+{{ end -}}
