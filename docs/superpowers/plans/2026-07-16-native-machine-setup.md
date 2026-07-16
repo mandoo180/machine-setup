@@ -130,7 +130,7 @@ if [ "${1:-}" = "--ps" ]; then
     # $ErrorActionPreference=Stop — 모듈 설치/로드 실패가 조용히 PASS 되지 않도록.
     docker run --rm -v /tmp/lint-target.ps1:/t.ps1:ro mcr.microsoft.com/powershell \
       pwsh -NoProfile -Command \
-      '$ErrorActionPreference = "Stop"; Install-Module PSScriptAnalyzer -RequiredVersion 1.21.0 -Force -Scope CurrentUser | Out-Null; Import-Module PSScriptAnalyzer -RequiredVersion 1.21.0; $r = Invoke-ScriptAnalyzer -Path /t.ps1 -Severity Error; $r; if ($r) { exit 1 }' || fail=1
+      '$ErrorActionPreference = "Stop"; Install-Module PSScriptAnalyzer -RequiredVersion 1.21.0 -Force -Scope CurrentUser | Out-Null; Import-Module PSScriptAnalyzer -RequiredVersion 1.21.0; $r = Invoke-ScriptAnalyzer -Path /t.ps1 -Severity Error,ParseError; $r; if ($r) { exit 1 }' || fail=1
   done
 fi
 
