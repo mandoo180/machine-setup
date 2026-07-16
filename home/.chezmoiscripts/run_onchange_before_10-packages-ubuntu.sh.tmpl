@@ -19,8 +19,19 @@ if [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
 fi
 
 # emacs 30.x PPA (서드파티: ubuntuhandbook1)
+# Launchpad/keyserver는 간헐적 5xx가 잦아 재시도한다 (스모크 테스트에서 504 실측)
 if ! compgen -G "/etc/apt/sources.list.d/*ubuntuhandbook1*" > /dev/null; then
-  sudo add-apt-repository -y ppa:ubuntuhandbook1/emacs
+  for attempt in 1 2 3; do
+    if sudo add-apt-repository -y ppa:ubuntuhandbook1/emacs; then
+      break
+    fi
+    if [ "$attempt" -eq 3 ]; then
+      echo "!! emacs PPA 추가가 3회 실패했습니다 (Launchpad 장애?). 잠시 후 rebuild를 재실행하십시오." >&2
+      exit 1
+    fi
+    echo ">> add-apt-repository 실패 (attempt $attempt/3) — 30초 후 재시도"
+    sleep 30
+  done
 fi
 
 # docker-ce (다이나믹 codename — docs.docker.com 권장 형태)
