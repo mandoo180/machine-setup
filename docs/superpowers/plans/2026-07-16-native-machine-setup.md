@@ -733,16 +733,23 @@ brew install --quiet {{ range .packages.brew.formulae }}{{ . }} {{ end }}
 {{ if not .isWSL -}}
 echo ">> [10-packages-ubuntu] official debs (desktop)"
 {{ range .packages.deb -}}
+# {{ .name }}: 개별 실패는 경고 후 계속 — 사내망 차단(discord 실측) 등으로 GUI 앱 하나가
+# 전체 apply를 막지 않는다 (winget 스크립트와 동일한 best-effort 철학)
 if ! dpkg -s {{ .dpkg_name }} >/dev/null 2>&1; then
-  tmp_deb="$(mktemp --suffix=.deb)"
+  if ! (
+    set -e
+    tmp_deb="$(mktemp --suffix=.deb)"
+    trap 'rm -f "$tmp_deb"' EXIT
 {{ if eq .name "obsidian" -}}
-  ver="$(curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest | jq -r '.tag_name | ltrimstr("v")')"
-  curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL -o "$tmp_deb" "https://github.com/obsidianmd/obsidian-releases/releases/download/v${ver}/obsidian_${ver}_amd64.deb"
+    ver="$(curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest | jq -r '.tag_name | ltrimstr("v")')"
+    curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL -o "$tmp_deb" "https://github.com/obsidianmd/obsidian-releases/releases/download/v${ver}/obsidian_${ver}_amd64.deb"
 {{ else -}}
-  curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL -o "$tmp_deb" "{{ .url }}"
+    curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL -o "$tmp_deb" "{{ .url }}"
 {{ end -}}
-  sudo apt-get install -y "$tmp_deb"
-  rm -f "$tmp_deb"
+    sudo apt-get install -y "$tmp_deb"
+  ); then
+    echo "!! {{ .name }} 설치 실패 (네트워크 차단/장애?) — 건너뜀. 수동 설치하거나 packages.yaml 변경 시 재시도됩니다." >&2
+  fi
 fi
 {{ end -}}
 
