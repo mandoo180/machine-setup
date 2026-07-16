@@ -1,0 +1,10 @@
+{{- $email := promptStringOnce . "email" "email" -}}
+{{- $isWSL := false -}}
+{{- if env "FORCE_WSL" -}}
+{{-   $isWSL = eq (env "FORCE_WSL") "true" -}}
+{{- else if and (eq .chezmoi.os "linux") (contains "microsoft" (.chezmoi.kernel.osrelease | lower)) -}}
+{{-   $isWSL = true -}}
+{{- end -}}
+[data]
+    email = {{ $email | quote }}
+    isWSL = {{ $isWSL }}

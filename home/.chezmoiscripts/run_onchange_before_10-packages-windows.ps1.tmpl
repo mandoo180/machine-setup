@@ -1,0 +1,21 @@
+{{ if eq .chezmoi.os "windows" -}}
+# packages.yaml 변경 시 재실행: {{ .packages | toJson | sha256sum }}
+$ErrorActionPreference = 'Stop'
+Write-Host ">> [10-packages-windows] winget install"
+$ids = @(
+{{ range .packages.winget.ids -}}
+  '{{ . }}',
+{{ end -}}
+  $null
+) | Where-Object { $_ }
+foreach ($id in $ids) {
+  winget list --id $id --exact --accept-source-agreements 2>$null | Out-Null
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host "   already installed: $id"
+  } else {
+    winget install --id $id --exact --silent --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) { Write-Warning "install failed: $id" }
+  }
+}
+Write-Host ">> [10-packages-windows] done"
+{{ end -}}

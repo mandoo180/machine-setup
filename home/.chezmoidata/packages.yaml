@@ -1,0 +1,241 @@
+packages:
+  brew:
+    taps:
+      - d12frosted/emacs-plus
+    # macOS/Ubuntu 공통 CLI (Linux bottle 전수 확인됨)
+    formulae:
+      - ripgrep
+      - fd
+      - bat
+      - eza
+      - fzf          # >=0.48 필요 (--zsh 통합). brew 최신은 0.74
+      - zoxide
+      - jq
+      - yq
+      - htop
+      - btop
+      - tree
+      - tlrc         # tldr 클라이언트 (brew의 tldr formula는 disabled)
+      - dust
+      - duf
+      - procs
+      - gh
+      - glab
+      - lazygit
+      - git-delta
+      - direnv
+      - wget         # macOS에 기본 부재 — brew로 전 플랫폼 커버
+      - httpie
+      - openssl@3
+      - lsof
+      - zip
+      - unzip
+      - sevenzip     # 공식 7-Zip (p7zip은 구버전 fork). 바이너리 7zz
+      - xz
+      - rsync
+      # rename은 여기(공통) 금지: Linux에서 rustup 의존성 util-linux와 `rename` 바이너리 충돌
+      # → darwin_only_formulae + apt.common으로 분리
+      - dos2unix
+      - watch
+      - fswatch
+      - pstree
+      - node
+      - bun
+      - uv           # Python은 uv가 관리
+      - go
+      - rustup       # PATH는 ~/.cargo/bin (zshrc에서 추가)
+      - openjdk
+      - make         # GNU make (macOS에선 gmake로 설치됨)
+      - cmake
+      - llvm
+      - libtool      # macOS: glibtool로 설치 — Emacs vterm 빌드 의존성
+      - neovim
+      # LSP류 제외 (스펙 §2): basedpyright, nil, sqls, jdt-language-server, leiningen
+    # GNU 유저랜드는 macOS만 (Linux는 시스템 기본이 GNU)
+    darwin_only_formulae:
+      - git          # Ubuntu는 bootstrap에서 apt로 설치
+      - zsh          # macOS 기본 zsh 최신화
+      - rename       # Linux에선 util-linux와 충돌 → Ubuntu는 apt로 설치
+      - coreutils
+      - findutils
+      - grep
+      - gnu-sed
+      - gawk
+      - colima
+      - docker       # CLI만 (데몬은 colima)
+      - d12frosted/emacs-plus/emacs-plus@30
+    casks:
+      - arc
+      - wezterm
+      - visual-studio-code
+      - zed
+      - godot
+      - figma
+      - blender
+      - love
+      - tiled
+      - obsidian
+      - gimp
+      - slack
+      - discord
+      - telegram
+      - spotify
+      - vlc
+      - 1password
+      - appcleaner
+      - the-unarchiver
+      - hiddenbar
+      - stats
+    font_casks:
+      - font-jetbrains-mono-nerd-font
+      - font-fira-code-nerd-font
+      - font-hack-nerd-font
+      - font-iosevka-nerd-font
+      - font-meslo-lg-nerd-font
+      - font-sauce-code-pro-nerd-font
+      - font-ubuntu-mono-nerd-font
+      - font-droid-sans-mono-nerd-font
+      - font-terminess-ttf-nerd-font
+      - font-zed-mono-nerd-font
+      - font-d2coding-nerd-font
+      - font-iosevka-term-nerd-font        # 비패치 Term cask 부재 — Nerd판으로 대체
+      - font-iosevka-term-slab-nerd-font
+      - font-jetbrains-mono
+      - font-fira-code
+      - font-source-code-pro
+      - font-cascadia-code
+      - font-departure-mono
+      - font-inter
+      - font-roboto
+      - font-open-sans
+      - font-source-sans-3
+      - font-source-serif-4
+      - font-noto-sans
+      - font-noto-serif
+      - font-noto-sans-cjk-kr
+      - font-noto-serif-cjk-kr
+      - font-noto-color-emoji
+      - font-d2coding
+      - font-fontawesome
+      - font-material-icons
+      - font-material-symbols
+  apt:
+    # desktop/WSL 공통 (시스템 통합 계층)
+    common:
+      - zsh              # brew zsh는 /etc/shells 문제로 apt 고정 (스펙 §6.1)
+      - rename           # brew rename은 util-linux(rustup 의존성)와 충돌 — apt(Perl rename)로 설치
+      - build-essential
+      - xclip
+      - trash-cli        # nvim Snacks.explorer 안전 삭제 의존성
+      - alsa-utils
+      - pulseaudio-utils # pactl (pipewire 데몬과 충돌 없음)
+      - emacs-pgtk       # ppa:ubuntuhandbook1/emacs (30.x, Wayland/WSLg 네이티브)
+      - wezterm          # apt.fury.io/wez repo
+    desktop:
+      - code             # packages.microsoft.com repo (WSL은 Windows측 VS Code 사용)
+      - ffmpeg           # ~/Projects/fulang 비디오 파이프라인 의존성
+      - vlc
+      - gimp
+      - ibus-hangul
+    wsl:
+      - wslu             # wslview 등
+      - firefox          # Mozilla apt repo (10-packages가 WSL에서 설정 — 스펙 §6.2)
+      - fcitx5
+      - fcitx5-hangul
+      - fcitx5-config-qt
+    fonts:
+      - fonts-noto
+      - fonts-noto-cjk
+      - fonts-noto-color-emoji
+      - fonts-font-awesome
+      - fonts-inter
+      - fonts-roboto
+      - fonts-open-sans
+      - fonts-cascadia-code
+      - fonts-jetbrains-mono
+      - fonts-firacode
+      - fonts-naver-d2coding
+      - fonts-materialdesignicons-webfont
+      # source-code-pro/source-sans/source-serif/material-symbols는 noble apt에 없음
+      # → Nerd SourceCodePro가 코딩 용도 커버 (의도적 제외)
+    # snap은 systemd 필요 — 40-services와 동일 가드 하에 설치
+  snap:
+    desktop:
+      - firefox
+      - spotify
+      - telegram-desktop
+  # 공식 deb 직배포 앱 (desktop 전용, dpkg -s로 멱등)
+  deb:
+    - name: obsidian
+      dpkg_name: obsidian
+      url: ""            # 빈 값 = GitHub API로 latest 조회 (10-packages-ubuntu 참조)
+    - name: slack
+      dpkg_name: slack-desktop
+      url: "https://downloads.slack-edge.com/desktop-releases/linux/x64/4.50.143/slack-desktop-4.50.143-amd64.deb"
+    - name: discord
+      dpkg_name: discord
+      url: "https://discord.com/api/download?platform=linux&format=deb"
+      # slack 버전 업그레이드 시 url의 버전만 교체 (고정 latest URL 없음)
+  winget:
+    ids:
+      # CLI (POSIX 전용 도구 제외 서브셋 — 스펙 §6.2. httpie는 winget에 CLI 없음 → 제외)
+      - Git.Git
+      - GitHub.cli
+      - GLab.GLab
+      - BurntSushi.ripgrep.MSVC
+      - sharkdp.fd
+      - sharkdp.bat
+      - eza-community.eza
+      - junegunn.fzf
+      - ajeetdsouza.zoxide
+      - jqlang.jq
+      - MikeFarah.yq
+      - dandavison.delta
+      - JesseDuffield.lazygit
+      - bootandy.dust
+      - muesli.duf
+      - dalance.procs
+      - tldr-pages.tlrc
+      - Neovim.Neovim
+      - GNU.Emacs
+      - twpayne.chezmoi
+      # 언어 런타임
+      - OpenJS.NodeJS.LTS
+      - Oven-sh.Bun
+      - astral-sh.uv
+      - GoLang.Go
+      - Rustlang.Rustup
+      - Microsoft.OpenJDK.21
+      # GUI
+      - Microsoft.PowerShell
+      - Microsoft.WindowsTerminal
+      - Microsoft.PowerToys
+      - wez.wezterm
+      - Microsoft.VisualStudioCode
+      - Docker.DockerDesktop
+      - tailscale.Tailscale
+      - AgileBits.1Password
+      - SlackTechnologies.Slack
+      - Discord.Discord
+      - Telegram.TelegramDesktop
+      - Spotify.Spotify
+      - VideoLAN.VLC
+      - Obsidian.Obsidian
+  fonts:
+    nerd_version: "3.4.0"
+    # asset명 주의: SauceCodePro → SourceCodePro.zip, Terminess → Terminus.zip
+    nerd_zips:
+      - JetBrainsMono
+      - FiraCode
+      - Hack
+      - Iosevka
+      - IosevkaTerm
+      - IosevkaTermSlab
+      - Meslo
+      - SourceCodePro
+      - UbuntuMono
+      - DroidSansMono
+      - Terminus
+      - ZedMono
+      - D2Coding
+      - DepartureMono

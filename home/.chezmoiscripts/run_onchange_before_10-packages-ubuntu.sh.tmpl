@@ -1,0 +1,110 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+# packages.yaml 변경 시 재실행: {{ .packages | toJson | sha256sum }}
+set -euo pipefail
+
+echo ">> [10-packages-ubuntu] third-party apt repos"
+
+# wezterm (apt.fury.io/wez)
+if [ ! -f /etc/apt/sources.list.d/wezterm.list ]; then
+  curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
+  sudo chmod 644 /usr/share/keyrings/wezterm-fury.gpg
+  echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | sudo tee /etc/apt/sources.list.d/wezterm.list >/dev/null
+fi
+
+# VS Code (packages.microsoft.com)
+if [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
+  curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --yes --dearmor -o /usr/share/keyrings/microsoft.gpg
+  echo "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null
+fi
+
+# emacs 30.x PPA (서드파티: ubuntuhandbook1)
+# Launchpad/keyserver는 간헐적 5xx가 잦아 재시도한다 (스모크 테스트에서 504 실측)
+if ! compgen -G "/etc/apt/sources.list.d/*ubuntuhandbook1*" > /dev/null; then
+  for attempt in 1 2 3; do
+    if sudo add-apt-repository -y ppa:ubuntuhandbook1/emacs; then
+      break
+    fi
+    if [ "$attempt" -eq 3 ]; then
+      echo "!! emacs PPA 추가가 3회 실패했습니다 (Launchpad 장애?). 잠시 후 rebuild를 재실행하십시오." >&2
+      exit 1
+    fi
+    echo ">> add-apt-repository 실패 (attempt $attempt/3) — 30초 후 재시도"
+    sleep 30
+  done
+fi
+
+# docker-ce (다이나믹 codename — docs.docker.com 권장 형태)
+if [ ! -f /etc/apt/sources.list.d/docker.list ]; then
+  sudo install -m 0755 -d /etc/apt/keyrings
+  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  sudo chmod a+r /etc/apt/keyrings/docker.asc
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+fi
+
+{{ if not .isWSL -}}
+# tailscale (desktop만 — 스펙 §10)
+if [ ! -f /etc/apt/sources.list.d/tailscale.list ]; then
+  curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+  curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
+fi
+{{ else -}}
+# firefox (WSL — 스펙 §6.2 "desktop/WSL 모두"): snap은 systemd 의존이라
+# Mozilla 공식 apt repo 사용 — 첫 부트(systemd 비활성)에서도 즉시 설치 가능
+if [ ! -f /etc/apt/sources.list.d/mozilla.list ]; then
+  sudo install -d -m 0755 /etc/apt/keyrings
+  curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc >/dev/null
+  echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | sudo tee /etc/apt/sources.list.d/mozilla.list >/dev/null
+  printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' | sudo tee /etc/apt/preferences.d/mozilla >/dev/null
+fi
+{{ end -}}
+
+echo ">> [10-packages-ubuntu] apt install"
+sudo apt-get update
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  {{ range .packages.apt.common }}{{ . }} {{ end }} \
+  {{ range .packages.apt.fonts }}{{ . }} {{ end }} \
+  docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
+{{ if .isWSL }}  {{ range .packages.apt.wsl }}{{ . }} {{ end }}
+{{ else }}  {{ range .packages.apt.desktop }}{{ . }} {{ end }} tailscale openssh-server
+{{ end }}
+
+echo ">> [10-packages-ubuntu] brew install (userland CLI)"
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+brew install --quiet {{ range .packages.brew.formulae }}{{ . }} {{ end }}
+
+{{ if not .isWSL -}}
+echo ">> [10-packages-ubuntu] official debs (desktop)"
+{{ range .packages.deb -}}
+# {{ .name }}: 개별 실패는 경고 후 계속 — 사내망 차단(discord 실측) 등으로 GUI 앱 하나가
+# 전체 apply를 막지 않는다 (winget 스크립트와 동일한 best-effort 철학)
+if ! dpkg -s {{ .dpkg_name }} >/dev/null 2>&1; then
+  if ! (
+    set -e
+    tmp_deb="$(mktemp --suffix=.deb)"
+    trap 'rm -f "$tmp_deb"' EXIT
+{{ if eq .name "obsidian" -}}
+    ver="$(curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest | jq -r '.tag_name | ltrimstr("v")')"
+    curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL -o "$tmp_deb" "https://github.com/obsidianmd/obsidian-releases/releases/download/v${ver}/obsidian_${ver}_amd64.deb"
+{{ else -}}
+    curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL -o "$tmp_deb" "{{ .url }}"
+{{ end -}}
+    sudo apt-get install -y "$tmp_deb"
+  ); then
+    echo "!! {{ .name }} 설치 실패 (네트워크 차단/장애?) — 건너뜀. 수동 설치하거나 packages.yaml 변경 시 재시도됩니다." >&2
+  fi
+fi
+{{ end -}}
+
+# snap (systemd 필요 — 컨테이너/미활성 환경에서는 건너뜀)
+if [ -d /run/systemd/system ] && command -v snap >/dev/null 2>&1; then
+{{ range .packages.snap.desktop -}}
+  snap list {{ . }} >/dev/null 2>&1 || sudo snap install {{ . }}
+{{ end -}}
+else
+  echo ">> snap 생략 (systemd 비활성): {{ range .packages.snap.desktop }}{{ . }} {{ end }}"
+fi
+{{ end -}}
+
+echo ">> [10-packages-ubuntu] done"
+{{ end -}}

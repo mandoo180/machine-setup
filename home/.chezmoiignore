@@ -1,0 +1,7 @@
+{{ if ne .chezmoi.os "windows" }}
+Documents
+{{ end }}
+{{ if eq .chezmoi.os "windows" }}
+.zshrc
+.config/bat
+{{ end }}

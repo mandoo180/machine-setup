@@ -1,0 +1,24 @@
+# Managed by chezmoi — 수정은 ~/Projects/machine-setup에서.
+$ErrorActionPreference = 'Continue'
+
+# PSReadLine (PSFzf보다 먼저 import — 키 핸들러 등록 순서)
+Import-Module PSReadLine
+Set-PSReadLineOption -EditMode Emacs
+
+# PSFzf (fzf 키바인딩: Ctrl+t 파일, Ctrl+r 히스토리)
+if (Get-Module -ListAvailable -Name PSFzf) {
+  Import-Module PSFzf
+  Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
+}
+
+# zoxide
+if (Get-Command zoxide -ErrorAction SilentlyContinue) {
+  Invoke-Expression (& { (zoxide init powershell | Out-String) })
+}
+
+# Environment
+$env:EDITOR = 'nvim'
+
+# rebuild / update
+function rebuild { chezmoi update }
+function update { winget upgrade --all; chezmoi update }

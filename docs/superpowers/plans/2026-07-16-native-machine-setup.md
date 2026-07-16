@@ -20,6 +20,7 @@
 - 커밋 메시지에 `Co-Authored-By:` 트레일러 절대 금지 (사용자 전역 지침)
 - chezmoi source 디렉터리는 `home/` (`.chezmoiroot`로 지정)
 - 이 머신(NixOS-WSL)에서의 검증 도구: `nix run nixpkgs#chezmoi --`, `nix run nixpkgs#shellcheck --`, docker(설치됨), yq(설치됨). PowerShell 린트는 `mcr.microsoft.com/powershell` 컨테이너
+- **렌더링 검증 규칙**: `chezmoi execute-template --init`은 `.chezmoidata`를 로드하지 않는다(Task 2 리뷰에서 규명). 스크립트/dotfile 템플릿 렌더링은 반드시 `tests/render.sh <true|false> <file>`(임시 config 생성 → execute-template, Task 3에서 작성)를 사용한다. `--init` 직접 사용은 `.chezmoi.toml.tmpl` 자체를 검증할 때만
 - 확정된 패키지 ID (검증 완료 — 임의 변경 금지):
   - brew에서 `tldr`은 disabled → **`tlrc`** 사용. `p7zip` 대신 **`sevenzip`**. `bun`은 core formula. rustup formula는 **`rustup`**
   - Nerd Fonts asset명 함정: SauceCodePro → **`SourceCodePro.zip`**, Terminess → **`Terminus.zip`**
@@ -60,7 +61,7 @@ home
 - [ ] **Step 2: `home/.chezmoi.toml.tmpl` 작성**
 
 ```
-{{- $email := promptStringOnce . "email" "git email (personal: mandoo180@gmail.com / work: kyeongsoo@douzone.com)" -}}
+{{- $email := promptStringOnce . "email" "email" -}}
 {{- $isWSL := false -}}
 {{- if env "FORCE_WSL" -}}
 {{-   $isWSL = eq (env "FORCE_WSL") "true" -}}
@@ -72,7 +73,7 @@ home
     isWSL = {{ $isWSL }}
 ```
 
-주의: `.chezmoi.kernel`은 Linux에서만 존재하므로 반드시 `and (eq .chezmoi.os "linux") (...)` 가드 안에서만 접근한다.
+주의 2건: (1) `.chezmoi.kernel`은 Linux에서만 존재하므로 반드시 `and (eq .chezmoi.os "linux") (...)` 가드 안에서만 접근한다. (2) `promptStringOnce`의 프롬프트 문구는 반드시 `"email"` 그대로 둔다 — chezmoi의 `--promptString key=value` 주입은 **프롬프트 문구를 키로 매칭**하므로, 문구를 바꾸면 모든 테스트의 `--promptString email=...`이 무시된다(개인/회사 이메일 안내는 bootstrap이 init 직전에 echo로 출력, Task 10).
 
 - [ ] **Step 3: `home/.chezmoiignore` 작성**
 
@@ -101,6 +102,16 @@ cd "$(dirname "$0")/.."
 SHELLCHECK="nix run nixpkgs#shellcheck --"
 command -v shellcheck >/dev/null 2>&1 && SHELLCHECK="shellcheck"
 
+# 템플릿 → 린트 가능 텍스트 변환:
+# 순수 템플릿 태그 줄({{ if }}, {{ range }}, {{ end }} 등)은 줄 자체를 삭제하고
+# (빈 줄로 남기면 1행 {{ if }} 뒤의 shebang이 SC1128에 걸리고,
+#  그대로 두면 PowerShell 배열 리터럴에서 ParseError를 일으킴),
+# 인라인 태그({{ . }} 등)만 __TMPL__ 플레이스홀더로 치환한다.
+# 실제 chezmoi 렌더링의 `-}}` 트리밍과 동등한 효과.
+strip_tmpl() {
+  sed -e '/^[[:space:]]*{{[^}]*}}[[:space:]]*$/d' -e 's/{{[^}]*}}/__TMPL__/g' "$1"
+}
+
 fail=0
 
 # 1) 순수 bash 파일
@@ -110,12 +121,13 @@ for f in bootstrap/*.sh tests/*.sh; do
   $SHELLCHECK -s bash "$f" || fail=1
 done
 
-# 2) 셸 템플릿: Go 템플릿 표현을 __TMPL__로 치환 후 검사
-#    (SC2034: 템플릿 변수 미사용 오탐 / SC2050: 치환된 상수 비교 오탐 제외)
+# 2) 셸 템플릿: Go 템플릿 표현을 __TMPL__로 치환 후 검사. 오탐 제외:
+#    SC2034/SC2050/SC2154(치환 잔재), SC1091(source 대상 미추적 info),
+#    SC1007(빈 env 프리픽스 `VAR= cmd` 오탐 — zshrc의 WAYLAND_DISPLAY= 관용구)
 for f in home/.chezmoiscripts/*.sh.tmpl home/dot_zshrc.tmpl; do
   [ -f "$f" ] || continue
   echo "shellcheck(tmpl): $f"
-  sed 's/{{[^}]*}}/__TMPL__/g' "$f" | $SHELLCHECK -s bash -e SC2034,SC2050,SC2154 - || fail=1
+  strip_tmpl "$f" | $SHELLCHECK -s bash -e SC2034,SC2050,SC2154,SC1091,SC1007 - || fail=1
 done
 
 # 3) PowerShell (옵션): PSScriptAnalyzer
@@ -123,14 +135,21 @@ if [ "${1:-}" = "--ps" ]; then
   for f in bootstrap/*.ps1 home/.chezmoiscripts/*.ps1.tmpl home/Documents/PowerShell/*.ps1.tmpl; do
     [ -f "$f" ] || continue
     echo "PSScriptAnalyzer: $f"
-    sed 's/{{[^}]*}}/__TMPL__/g' "$f" > /tmp/lint-target.ps1
+    strip_tmpl "$f" > /tmp/lint-target.ps1
+    # PSScriptAnalyzer 1.21.0 고정: 컨테이너 pwsh(7.4.2)와 호환되는 검증된 버전.
+    # $ErrorActionPreference=Stop — 모듈 설치/로드 실패가 조용히 PASS 되지 않도록.
     docker run --rm -v /tmp/lint-target.ps1:/t.ps1:ro mcr.microsoft.com/powershell \
       pwsh -NoProfile -Command \
-      'Install-Module PSScriptAnalyzer -Force -Scope CurrentUser | Out-Null; $r = Invoke-ScriptAnalyzer -Path /t.ps1 -Severity Error; $r; if ($r) { exit 1 }' || fail=1
+      '$ErrorActionPreference = "Stop"; Install-Module PSScriptAnalyzer -RequiredVersion 1.21.0 -Force -Scope CurrentUser | Out-Null; Import-Module PSScriptAnalyzer -RequiredVersion 1.21.0; $r = Invoke-ScriptAnalyzer -Path /t.ps1 -Severity Error,ParseError; $r; if ($r) { exit 1 }' || fail=1
   done
 fi
 
-[ "$fail" -eq 0 ] && echo "LINT PASS" || { echo "LINT FAIL"; exit 1; }
+if [ "$fail" -eq 0 ]; then
+  echo "LINT PASS"
+else
+  echo "LINT FAIL"
+  exit 1
+fi
 ```
 
 - [ ] **Step 5: 린트 하네스 자체 검증**
@@ -206,6 +225,7 @@ packages:
       - lazygit
       - git-delta
       - direnv
+      - wget         # macOS에 기본 부재 — brew로 전 플랫폼 커버
       - httpie
       - openssl@3
       - lsof
@@ -214,7 +234,8 @@ packages:
       - sevenzip     # 공식 7-Zip (p7zip은 구버전 fork). 바이너리 7zz
       - xz
       - rsync
-      - rename
+      # rename은 여기(공통) 금지: Linux에서 rustup 의존성 util-linux와 `rename` 바이너리 충돌
+      # → darwin_only_formulae + apt.common으로 분리
       - dos2unix
       - watch
       - fswatch
@@ -235,6 +256,7 @@ packages:
     darwin_only_formulae:
       - git          # Ubuntu는 bootstrap에서 apt로 설치
       - zsh          # macOS 기본 zsh 최신화
+      - rename       # Linux에선 util-linux와 충돌 → Ubuntu는 apt로 설치
       - coreutils
       - findutils
       - grep
@@ -302,6 +324,7 @@ packages:
     # desktop/WSL 공통 (시스템 통합 계층)
     common:
       - zsh              # brew zsh는 /etc/shells 문제로 apt 고정 (스펙 §6.1)
+      - rename           # brew rename은 util-linux(rustup 의존성)와 충돌 — apt(Perl rename)로 설치
       - build-essential
       - xclip
       - trash-cli        # nvim Snacks.explorer 안전 삭제 의존성
@@ -317,6 +340,7 @@ packages:
       - ibus-hangul
     wsl:
       - wslu             # wslview 등
+      - firefox          # Mozilla apt repo (10-packages가 WSL에서 설정 — 스펙 §6.2)
       - fcitx5
       - fcitx5-hangul
       - fcitx5-config-qt
@@ -434,11 +458,16 @@ Expected: `44` / `40` / `14` / `obsidian`·`slack-desktop`·`discord` (에러 �
 
 - [ ] **Step 3: chezmoi 데이터로 로드되는지 검증**
 
+주의: `execute-template --init`은 `.chezmoidata`를 로드하지 않으므로 임시 config를 먼저 생성한다.
+
 Run:
 
 ```bash
-FORCE_WSL=false nix run nixpkgs#chezmoi -- --source ~/Projects/machine-setup \
-  execute-template --init --promptString email=t@t.com \
+cd ~/Projects/machine-setup
+mkdir -p /tmp/czt
+FORCE_WSL=false nix run nixpkgs#chezmoi -- init --source . --config /tmp/czt/chezmoi.toml \
+  --promptString email=t@t.com
+nix run nixpkgs#chezmoi -- --source . --config /tmp/czt/chezmoi.toml execute-template \
   '{{ .packages.fonts.nerd_version }} {{ len .packages.brew.formulae }}'
 ```
 
@@ -453,18 +482,41 @@ git commit -m "feat: packages.yaml — 전 플랫폼 패키지 목록 단일 소
 
 ---
 
-### Task 3: dotfiles — zshrc / git config / bat config
+### Task 3: dotfiles — zshrc / git config / bat config (+렌더링 헬퍼)
 
 **Files:**
+- Create: `tests/render.sh`
 - Create: `home/dot_zshrc.tmpl`
 - Create: `home/dot_config/git/config.tmpl`
 - Create: `home/dot_config/bat/config`
 
 **Interfaces:**
-- Consumes: `.email`, `.isWSL` (Task 1)
+- Consumes: `.email`, `.isWSL` (Task 1), `.packages` (Task 2)
 - Produces: `rebuild`/`update` alias 정의 — README(Task 10)가 문서화
+- Produces: `tests/render.sh <true|false> <template-file>` — 이후 모든 태스크의 렌더링 검증이 사용 (email은 `t@t.com` 고정)
 
-- [ ] **Step 1: `home/dot_zshrc.tmpl` 작성**
+- [ ] **Step 1: 렌더링 헬퍼 `tests/render.sh` 작성**
+
+```bash
+#!/usr/bin/env bash
+# 렌더링 헬퍼: isWSL 컨텍스트를 강제한 임시 config로 템플릿을 렌더링한다.
+# 사용법: bash tests/render.sh <true|false> <template-file>
+# 배경: execute-template --init은 .chezmoidata를 로드하지 않으므로,
+#       임시 config를 생성(init, apply 없음)한 뒤 execute-template을 쓴다.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+ctx="$1"
+file="$2"
+CZ="nix run nixpkgs#chezmoi --"
+command -v chezmoi >/dev/null 2>&1 && CZ="chezmoi"
+tmp="${TMPDIR:-/tmp}/cz-render-$ctx"
+mkdir -p "$tmp"
+FORCE_WSL="$ctx" $CZ init --source "$(pwd)" --config "$tmp/chezmoi.toml" \
+  --promptString email=t@t.com >/dev/null
+$CZ --source "$(pwd)" --config "$tmp/chezmoi.toml" execute-template < "$file"
+```
+
+- [ ] **Step 2: `home/dot_zshrc.tmpl` 작성**
 
 ```
 # Managed by chezmoi — 수정은 ~/Projects/machine-setup에서.
@@ -535,7 +587,7 @@ command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 
 제외 확인: `em`/`emc` 함수, alias `e`/`v`/`ccc`, Jira env — 스펙 §2 사용자 결정으로 포함하지 않는다.
 
-- [ ] **Step 2: `home/dot_config/git/config.tmpl` 작성**
+- [ ] **Step 3: `home/dot_config/git/config.tmpl` 작성**
 
 ```
 [user]
@@ -559,50 +611,45 @@ command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 	helper = store
 ```
 
-- [ ] **Step 3: `home/dot_config/bat/config` 작성**
+- [ ] **Step 4: `home/dot_config/bat/config` 작성**
 
 ```
 --theme="Dracula"
 ```
 
-- [ ] **Step 4: 렌더링 검증 — WSL/desktop 양쪽 컨텍스트**
+- [ ] **Step 5: 렌더링 검증 — WSL/desktop 양쪽 컨텍스트**
 
 Run:
 
 ```bash
 cd ~/Projects/machine-setup
-CZ="nix run nixpkgs#chezmoi --"
 # WSL 컨텍스트: fcitx5 블록 있어야 함
-FORCE_WSL=true $CZ --source . execute-template --init --promptString email=t@t.com \
-  "$(cat home/dot_zshrc.tmpl)" | grep -c "fcitx5 -d"
+bash tests/render.sh true home/dot_zshrc.tmpl | grep -c "fcitx5 -d"
 # desktop 컨텍스트: fcitx5 블록 없어야 함
-FORCE_WSL=false $CZ --source . execute-template --init --promptString email=t@t.com \
-  "$(cat home/dot_zshrc.tmpl)" | grep -c "fcitx5 -d" || true
-# git config에 email 주입 확인
-FORCE_WSL=false $CZ --source . execute-template --init --promptString email=work@douzone.com \
-  "$(cat home/dot_config/git/config.tmpl)" | grep "email"
+bash tests/render.sh false home/dot_zshrc.tmpl | grep -c "fcitx5 -d" || true
+# git config에 email 주입 확인 (헬퍼는 email=t@t.com 고정)
+bash tests/render.sh false home/dot_config/git/config.tmpl | grep "email ="
 ```
 
-Expected: 첫 grep은 `1`, 둘째 grep은 `0`, 셋째는 `	email = work@douzone.com`
+Expected: 첫 grep은 `1`, 둘째 grep은 `0`, 셋째는 `	email = t@t.com`
 
-- [ ] **Step 5: 렌더링된 zshrc 문법 검증**
+- [ ] **Step 6: 렌더링된 zshrc 문법 검증**
 
 Run:
 
 ```bash
-FORCE_WSL=true nix run nixpkgs#chezmoi -- --source . execute-template --init \
-  --promptString email=t@t.com "$(cat home/dot_zshrc.tmpl)" > /tmp/zshrc-rendered
+bash tests/render.sh true home/dot_zshrc.tmpl > /tmp/zshrc-rendered
 zsh -n /tmp/zshrc-rendered && echo SYNTAX-OK
 bash tests/lint.sh
 ```
 
 Expected: `SYNTAX-OK`, `LINT PASS`
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add home/dot_zshrc.tmpl home/dot_config/git/config.tmpl home/dot_config/bat/config
-git commit -m "feat: dotfiles — zshrc/git/bat (home.nix 이관, 개인 항목 제외)"
+git add tests/render.sh home/dot_zshrc.tmpl home/dot_config/git/config.tmpl home/dot_config/bat/config
+git commit -m "feat: dotfiles — zshrc/git/bat + 렌더링 헬퍼 (home.nix 이관, 개인 항목 제외)"
 ```
 
 ---
@@ -640,8 +687,19 @@ if [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
 fi
 
 # emacs 30.x PPA (서드파티: ubuntuhandbook1)
-if ! ls /etc/apt/sources.list.d/ | grep -q ubuntuhandbook1; then
-  sudo add-apt-repository -y ppa:ubuntuhandbook1/emacs
+# Launchpad/keyserver는 간헐적 5xx가 잦아 재시도한다 (스모크 테스트에서 504 실측)
+if ! compgen -G "/etc/apt/sources.list.d/*ubuntuhandbook1*" > /dev/null; then
+  for attempt in 1 2 3; do
+    if sudo add-apt-repository -y ppa:ubuntuhandbook1/emacs; then
+      break
+    fi
+    if [ "$attempt" -eq 3 ]; then
+      echo "!! emacs PPA 추가가 3회 실패했습니다 (Launchpad 장애?). 잠시 후 rebuild를 재실행하십시오." >&2
+      exit 1
+    fi
+    echo ">> add-apt-repository 실패 (attempt $attempt/3) — 30초 후 재시도"
+    sleep 30
+  done
 fi
 
 # docker-ce (다이나믹 codename — docs.docker.com 권장 형태)
@@ -657,6 +715,15 @@ fi
 if [ ! -f /etc/apt/sources.list.d/tailscale.list ]; then
   curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
   curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
+fi
+{{ else -}}
+# firefox (WSL — 스펙 §6.2 "desktop/WSL 모두"): snap은 systemd 의존이라
+# Mozilla 공식 apt repo 사용 — 첫 부트(systemd 비활성)에서도 즉시 설치 가능
+if [ ! -f /etc/apt/sources.list.d/mozilla.list ]; then
+  sudo install -d -m 0755 /etc/apt/keyrings
+  curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc >/dev/null
+  echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | sudo tee /etc/apt/sources.list.d/mozilla.list >/dev/null
+  printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' | sudo tee /etc/apt/preferences.d/mozilla >/dev/null
 fi
 {{ end -}}
 
@@ -677,16 +744,23 @@ brew install --quiet {{ range .packages.brew.formulae }}{{ . }} {{ end }}
 {{ if not .isWSL -}}
 echo ">> [10-packages-ubuntu] official debs (desktop)"
 {{ range .packages.deb -}}
+# {{ .name }}: 개별 실패는 경고 후 계속 — 사내망 차단(discord 실측) 등으로 GUI 앱 하나가
+# 전체 apply를 막지 않는다 (winget 스크립트와 동일한 best-effort 철학)
 if ! dpkg -s {{ .dpkg_name }} >/dev/null 2>&1; then
-  tmp_deb="$(mktemp --suffix=.deb)"
+  if ! (
+    set -e
+    tmp_deb="$(mktemp --suffix=.deb)"
+    trap 'rm -f "$tmp_deb"' EXIT
 {{ if eq .name "obsidian" -}}
-  ver="$(curl -fsSL https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest | jq -r '.tag_name | ltrimstr("v")')"
-  curl -fsSL -o "$tmp_deb" "https://github.com/obsidianmd/obsidian-releases/releases/download/v${ver}/obsidian_${ver}_amd64.deb"
+    ver="$(curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest | jq -r '.tag_name | ltrimstr("v")')"
+    curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL -o "$tmp_deb" "https://github.com/obsidianmd/obsidian-releases/releases/download/v${ver}/obsidian_${ver}_amd64.deb"
 {{ else -}}
-  curl -fsSL -o "$tmp_deb" "{{ .url }}"
+    curl --retry 3 --retry-delay 10 --retry-all-errors -fsSL -o "$tmp_deb" "{{ .url }}"
 {{ end -}}
-  sudo apt-get install -y "$tmp_deb"
-  rm -f "$tmp_deb"
+    sudo apt-get install -y "$tmp_deb"
+  ); then
+    echo "!! {{ .name }} 설치 실패 (네트워크 차단/장애?) — 건너뜀. 수동 설치하거나 packages.yaml 변경 시 재시도됩니다." >&2
+  fi
 fi
 {{ end -}}
 
@@ -712,12 +786,11 @@ Run:
 
 ```bash
 cd ~/Projects/machine-setup
-CZ="nix run nixpkgs#chezmoi --"
 SRC=home/.chezmoiscripts/run_onchange_before_10-packages-ubuntu.sh.tmpl
 # desktop: tailscale repo 포함, wsl 패키지 미포함
-FORCE_WSL=false $CZ --source . execute-template --init --promptString email=t@t.com "$(cat $SRC)" | grep -c "tailscale"
+bash tests/render.sh false $SRC | grep -c "tailscale"
 # WSL: tailscale 없음, fcitx5 있음
-FORCE_WSL=true $CZ --source . execute-template --init --promptString email=t@t.com "$(cat $SRC)" > /tmp/r-wsl.sh
+bash tests/render.sh true $SRC > /tmp/r-wsl.sh
 grep -c "tailscale" /tmp/r-wsl.sh || true
 grep -c "fcitx5" /tmp/r-wsl.sh
 bash -n /tmp/r-wsl.sh && echo SYNTAX-OK
@@ -818,9 +891,7 @@ Run:
 ```bash
 cd ~/Projects/machine-setup
 # darwin 스크립트는 linux 컨텍스트에서 빈 본문이어야 함
-FORCE_WSL=false nix run nixpkgs#chezmoi -- --source . execute-template --init \
-  --promptString email=t@t.com \
-  "$(cat home/.chezmoiscripts/run_onchange_before_10-packages-darwin.sh.tmpl)" | wc -c
+bash tests/render.sh false home/.chezmoiscripts/run_onchange_before_10-packages-darwin.sh.tmpl | wc -c
 bash tests/lint.sh
 bash tests/lint.sh --ps
 ```
@@ -911,16 +982,28 @@ $zips = @(
 ) | Where-Object { $_ }
 
 foreach ($z in $zips) {
+  # 멱등 마커($marker)는 성공 시에만 존재해야 한다: 스테이징에 풀고 성공 시 이동,
+  # 실패 시 마커 제거 — Expand-Archive는 실패해도 대상 디렉터리를 만들기 때문.
   $marker = Join-Path $fontRoot $z
   if (Test-Path $marker) { continue }
   Write-Host ">> [20-fonts] $z v$nerdVer"
   $tmp = Join-Path $env:TEMP "$z.zip"
-  Invoke-WebRequest -Uri "https://github.com/ryanoasis/nerd-fonts/releases/download/v$nerdVer/$z.zip" -OutFile $tmp
-  Expand-Archive -Path $tmp -DestinationPath $marker -Force
-  Remove-Item $tmp
-  Get-ChildItem -Path $marker -Include '*.ttf','*.otf' -Recurse | ForEach-Object {
-    $name = "$($_.BaseName) (TrueType)"
-    New-ItemProperty -Path $regPath -Name $name -Value $_.FullName -PropertyType String -Force | Out-Null
+  $staging = Join-Path $env:TEMP "nf-$z"
+  try {
+    Invoke-WebRequest -Uri "https://github.com/ryanoasis/nerd-fonts/releases/download/v$nerdVer/$z.zip" -OutFile $tmp
+    if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
+    Expand-Archive -Path $tmp -DestinationPath $staging -Force
+    Move-Item -Path $staging -Destination $marker
+    Get-ChildItem -Path $marker -Include '*.ttf','*.otf' -Recurse | ForEach-Object {
+      $name = "$($_.BaseName) (TrueType)"
+      New-ItemProperty -Path $regPath -Name $name -Value $_.FullName -PropertyType String -Force | Out-Null
+    }
+  } catch {
+    if (Test-Path $marker) { Remove-Item -Recurse -Force $marker }
+    throw
+  } finally {
+    Remove-Item -Force -ErrorAction SilentlyContinue $tmp
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $staging
   }
 }
 Write-Host ">> [20-fonts-windows] done (새 앱 세션부터 인식)"
@@ -933,16 +1016,15 @@ Run:
 
 ```bash
 cd ~/Projects/machine-setup
-FORCE_WSL=false nix run nixpkgs#chezmoi -- --source . execute-template --init \
-  --promptString email=t@t.com \
-  "$(cat home/.chezmoiscripts/run_onchange_after_20-fonts-ubuntu.sh.tmpl)" > /tmp/r-fonts.sh
+bash tests/render.sh false home/.chezmoiscripts/run_onchange_after_20-fonts-ubuntu.sh.tmpl > /tmp/r-fonts.sh
 bash -n /tmp/r-fonts.sh && echo SYNTAX-OK
-grep -c "nerd-fonts/releases/download/v3.4.0" /tmp/r-fonts.sh
-grep -c "SourceCodePro.zip" /tmp/r-fonts.sh   # SauceCodePro가 아님을 확인
+grep -c 'NERD_VER="3.4.0"' /tmp/r-fonts.sh                    # 버전 고정 확인 (URL은 ${NERD_VER} 변수 참조)
+grep -c "nerd-fonts/releases/download" /tmp/r-fonts.sh        # 14개 폰트 블록 = 14개 다운로드 URL
+grep -c "SourceCodePro.zip" /tmp/r-fonts.sh                   # SauceCodePro가 아님을 확인 (블록당 3줄 매치)
 bash tests/lint.sh && bash tests/lint.sh --ps
 ```
 
-Expected: `SYNTAX-OK`, 첫 grep `14`, 둘째 grep `1`, `LINT PASS` 두 번
+Expected: `SYNTAX-OK`, 첫 grep `1`, 둘째 grep `14`, 셋째 grep `3`, `LINT PASS` 두 번
 
 - [ ] **Step 5: Commit**
 
@@ -973,7 +1055,12 @@ git commit -m "feat: 폰트 설치 — Nerd Fonts v3.4.0 + cask/사용자레벨 
 set -euo pipefail
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
   echo ">> [25-oh-my-zsh] install (unattended)"
-  sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc
+  # 다운로드와 실행 분리: curl 실패가 sh -c ""(성공)로 삼켜져 run_once가
+  # 미설치 상태를 영구히 '완료'로 기록하는 것 방지
+  omz_installer="$(mktemp)"
+  curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o "$omz_installer"
+  sh "$omz_installer" --unattended --keep-zshrc
+  rm -f "$omz_installer"
 fi
 {{ if eq .chezmoi.os "linux" -}}
 # 기본 셸 전환 (apt zsh = /usr/bin/zsh, /etc/shells 등재 자동)
@@ -1069,7 +1156,7 @@ defaults write com.apple.menuextra.clock Show24Hour -bool true
 defaults write com.apple.menuextra.clock ShowDate -int 1
 defaults write com.apple.menuextra.clock ShowDayOfWeek -bool true
 defaults write com.apple.menuextra.clock ShowSeconds -bool false
-defaults write com.apple.screensaver askForPassword -int 1
+defaults write com.apple.screensaver askForPassword -bool true
 defaults write com.apple.screensaver askForPasswordDelay -int 5
 mkdir -p "$HOME/Pictures/Screenshots"
 defaults write com.apple.screencapture disable-shadow -bool true
@@ -1093,7 +1180,8 @@ if [ ! -f /etc/pam.d/sudo_local ] || ! grep -q pam_tid.so /etc/pam.d/sudo_local;
 fi
 
 # --- emacs-plus Emacs.app → /Applications (Spotlight) ---
-EMACS_APP="$(find /opt/homebrew/Cellar/emacs-plus@30 -maxdepth 2 -name "Emacs.app" -type d 2>/dev/null | head -1)"
+# `|| true`: Cellar 경로 부재 시 find가 exit 1 → pipefail로 스크립트 전체가 중단되는 것 방지
+EMACS_APP="$(find /opt/homebrew/Cellar/emacs-plus@30 -maxdepth 2 -name "Emacs.app" -type d 2>/dev/null | head -1 || true)"
 if [ -n "$EMACS_APP" ] && [ ! -d /Applications/Emacs.app ]; then
   echo ">> copying Emacs.app to /Applications"
   cp -R "$EMACS_APP" /Applications/
@@ -1164,12 +1252,9 @@ Run:
 
 ```bash
 cd ~/Projects/machine-setup
-CZ="nix run nixpkgs#chezmoi --"
 # gnome 스크립트: desktop 컨텍스트에서만 본문 렌더링
-FORCE_WSL=false $CZ --source . execute-template --init --promptString email=t@t.com \
-  "$(cat home/.chezmoiscripts/run_onchange_after_30-os-settings-gnome.sh.tmpl)" | grep -c gsettings
-FORCE_WSL=true $CZ --source . execute-template --init --promptString email=t@t.com \
-  "$(cat home/.chezmoiscripts/run_onchange_after_30-os-settings-gnome.sh.tmpl)" | wc -c
+bash tests/render.sh false home/.chezmoiscripts/run_onchange_after_30-os-settings-gnome.sh.tmpl | grep -c gsettings
+bash tests/render.sh true home/.chezmoiscripts/run_onchange_after_30-os-settings-gnome.sh.tmpl | wc -c
 bash tests/lint.sh && bash tests/lint.sh --ps
 ```
 
@@ -1202,6 +1287,9 @@ git commit -m "feat: oh-my-zsh 비대화식 설치 + OS 설정 (darwin 1:1/gnome
 ```
 {{ if eq .chezmoi.os "linux" -}}
 #!/bin/bash
+# systemd 상태를 렌더 본문에 포함 — WSL 첫 부트(비활성)→재시작(활성) 전이 시
+# run_onchange가 본문 변경을 감지해 재실행되어 서비스가 실제로 기동된다.
+# systemd: {{ output "sh" "-c" "test -d /run/systemd/system && echo up || echo down" | trim }}
 set -euo pipefail
 SYSTEMD_UP=0
 [ -d /run/systemd/system ] && SYSTEMD_UP=1
@@ -1243,7 +1331,7 @@ echo ">> [40-services-ubuntu] done"
 set -euo pipefail
 eval "$(/opt/homebrew/bin/brew shellenv)"
 echo ">> [40-services-darwin] colima (docker 엔진)"
-if ! brew services list | grep -E '^colima\s+started' >/dev/null 2>&1; then
+if ! brew services list | grep -E '^colima[[:space:]]+started' >/dev/null 2>&1; then
   brew services start colima
   echo ">> colima 최초 기동은 VM 생성으로 수 분 걸릴 수 있습니다"
 fi
@@ -1261,7 +1349,13 @@ if ! command -v gsettings >/dev/null 2>&1; then
   echo ">> [50-input-method-gnome] gsettings 없음 — 건너뜀"
   exit 0
 fi
-current="$(gsettings get org.gnome.desktop.input-sources sources)"
+# `|| true`: 비GUI 세션(dbus 미초기화 등)에서 gsettings 실패가 apply 전체를 죽이지 않도록
+current="$(gsettings get org.gnome.desktop.input-sources sources 2>/dev/null || true)"
+if [ -z "$current" ]; then
+  echo ">> [50-input-method-gnome] gsettings 조회 실패(비GUI 세션?) — 수동 등록 필요:"
+  echo ">>   gsettings set org.gnome.desktop.input-sources sources \"[('xkb', 'us'), ('ibus', 'hangul')]\""
+  exit 0
+fi
 if ! echo "$current" | grep -q "hangul"; then
   echo ">> [50-input-method-gnome] ibus-hangul 입력 소스 등록"
   gsettings set org.gnome.desktop.input-sources sources "[('xkb', 'us'), ('ibus', 'hangul')]"
@@ -1298,10 +1392,9 @@ Run:
 
 ```bash
 cd ~/Projects/machine-setup
-CZ="nix run nixpkgs#chezmoi --"
 SVC=home/.chezmoiscripts/run_onchange_after_40-services-ubuntu.sh.tmpl
 # WSL: tailscale/ssh 하드닝 없음 + wsl --shutdown 안내 있음
-FORCE_WSL=true $CZ --source . execute-template --init --promptString email=t@t.com "$(cat $SVC)" > /tmp/r-svc.sh
+bash tests/render.sh true $SVC > /tmp/r-svc.sh
 grep -c "tailscale" /tmp/r-svc.sh || true
 grep -c "wsl --shutdown" /tmp/r-svc.sh
 bash -n /tmp/r-svc.sh && echo SYNTAX-OK
@@ -1374,7 +1467,7 @@ $deployed = Join-Path $HOME 'Documents\PowerShell\Microsoft.PowerShell_profile.p
 if (($PROFILE -ne $deployed) -and (-not (Test-Path $PROFILE))) {
   New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) | Out-Null
   Set-Content -Path $PROFILE -Value ". `"$deployed`""
-  Write-Host ">> \$PROFILE 스텁 생성: $PROFILE → $deployed"
+  Write-Host ">> `$PROFILE 스텁 생성: $PROFILE → $deployed"
 }
 Write-Host ">> [26-psfzf-windows] done"
 {{ end -}}
@@ -1425,10 +1518,17 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   gnupg software-properties-common
 
 # WSL: systemd 활성화 기록 (스펙 §10 — 담당: bootstrap)
+# 기존 wsl.conf의 [boot] 섹션/systemd= 키와 병합해 중복 섹션 헤더를 만들지 않는다.
 if grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then
-  if [ ! -f /etc/wsl.conf ] || ! grep -q "systemd=true" /etc/wsl.conf; then
+  if ! grep -qs "systemd=true" /etc/wsl.conf; then
     echo ">> [bootstrap] /etc/wsl.conf에 systemd=true 기록"
-    printf '[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf >/dev/null
+    if grep -qs '^[[:space:]]*systemd[[:space:]]*=' /etc/wsl.conf; then
+      sudo sed -i 's/^[[:space:]]*systemd[[:space:]]*=.*/systemd=true/' /etc/wsl.conf
+    elif grep -qs '^\[boot\]' /etc/wsl.conf; then
+      sudo sed -i '/^\[boot\]/a systemd=true' /etc/wsl.conf
+    else
+      printf '[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf >/dev/null
+    fi
   fi
 fi
 
@@ -1441,6 +1541,7 @@ eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 command -v chezmoi >/dev/null 2>&1 || brew install chezmoi
 
 echo ">> [bootstrap] chezmoi init --apply ($REPO)"
+echo ">> email 프롬프트에는 개인(mandoo180@gmail.com) 또는 회사(kyeongsoo@douzone.com) 주소를 입력하십시오"
 # CHEZMOI_EXTRA_ARGS: 비대화 실행용 (예: --promptString email=t@t.com — 스모크 테스트가 사용)
 # shellcheck disable=SC2086
 chezmoi init --apply "$REPO" ${CHEZMOI_EXTRA_ARGS:-}
@@ -1464,7 +1565,19 @@ REPO="${MACHINE_SETUP_REPO:-https://github.com/mandoo180/machine-setup.git}"
 if ! xcode-select -p >/dev/null 2>&1; then
   echo ">> [bootstrap] Xcode Command Line Tools 설치 (GUI 창 승인 필요)"
   xcode-select --install
-  until xcode-select -p >/dev/null 2>&1; do sleep 10; done
+  # 30분 타임아웃 — 사용자가 GUI 설치를 취소하면 무한 대기하지 않는다
+  waited=0
+  until xcode-select -p >/dev/null 2>&1; do
+    sleep 10
+    waited=$((waited + 10))
+    if [ "$waited" -ge 1800 ]; then
+      echo "!! CLT 설치가 30분 내 완료되지 않았습니다. 설치 완료 후 이 스크립트를 다시 실행하십시오." >&2
+      exit 1
+    fi
+    if [ $((waited % 60)) -eq 0 ]; then
+      echo ">> CLT 설치 대기 중... (${waited}s)"
+    fi
+  done
 fi
 
 if [ ! -x /opt/homebrew/bin/brew ]; then
@@ -1476,6 +1589,7 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 command -v chezmoi >/dev/null 2>&1 || brew install chezmoi
 
 echo ">> [bootstrap] chezmoi init --apply ($REPO)"
+echo ">> email 프롬프트에는 개인(mandoo180@gmail.com) 또는 회사(kyeongsoo@douzone.com) 주소를 입력하십시오"
 chezmoi init --apply "$REPO"
 
 echo ">> [bootstrap] 완료. 터미널을 재시작하십시오."
@@ -1538,10 +1652,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/mandoo180/machine-setup/main
 ```
 
 ```powershell
-# Windows 11 (PowerShell)
+# Windows 11 (PowerShell) — fresh 머신엔 git이 없으므로 내장 curl.exe로 스크립트만 받는다
 Set-ExecutionPolicy -Scope Process Bypass -Force
-git clone https://github.com/mandoo180/machine-setup.git; .\machine-setup\bootstrap\windows.ps1
-# WSL까지: .\machine-setup\bootstrap\windows.ps1 -InstallWSL
+curl.exe -fsSLo windows.ps1 https://raw.githubusercontent.com/mandoo180/machine-setup/main/bootstrap/windows.ps1; .\windows.ps1
+# WSL까지: .\windows.ps1 -InstallWSL
 ```
 
 최초 실행 시 git email을 묻는다 (개인 mandoo180@gmail.com / 회사 kyeongsoo@douzone.com).
@@ -1654,7 +1768,10 @@ run_context() {
     '
 }
 
-for ctx in "${@:-wsl desktop}"; do run_context "$ctx"; done
+# "${@:-wsl desktop}"는 무인자 시 한 단어로 확장되는 함정이 있어 배열로 처리
+contexts=("$@")
+[ ${#contexts[@]} -eq 0 ] && contexts=(wsl desktop)
+for ctx in "${contexts[@]}"; do run_context "$ctx"; done
 echo "SMOKE PASS"
 ```
 
@@ -1726,8 +1843,7 @@ Run:
 cd ~/Projects/machine-setup
 for f in home/.chezmoiscripts/*.tmpl home/dot_zshrc.tmpl home/dot_config/git/config.tmpl; do
   for fw in true false; do
-    FORCE_WSL=$fw nix run nixpkgs#chezmoi -- --source . execute-template --init \
-      --promptString email=t@t.com "$(cat "$f")" > /dev/null \
+    bash tests/render.sh "$fw" "$f" > /dev/null \
       || { echo "RENDER FAIL: $f (FORCE_WSL=$fw)"; exit 1; }
   done
 done && echo RENDER-OK

@@ -1,0 +1,22 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+# fonts 목록 변경 시 재실행: {{ .packages.fonts | toJson | sha256sum }}
+set -euo pipefail
+NERD_VER="{{ .packages.fonts.nerd_version }}"
+FONT_DIR="$HOME/.local/share/fonts"
+mkdir -p "$FONT_DIR"
+changed=0
+{{ range .packages.fonts.nerd_zips -}}
+if [ ! -d "$FONT_DIR/{{ . }}" ]; then
+  echo ">> [20-fonts] {{ . }} v${NERD_VER}"
+  tmp="$(mktemp -d)"
+  curl -fsSL -o "$tmp/{{ . }}.zip" \
+    "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERD_VER}/{{ . }}.zip"
+  unzip -q "$tmp/{{ . }}.zip" -d "$FONT_DIR/{{ . }}"
+  rm -rf "$tmp"
+  changed=1
+fi
+{{ end -}}
+[ "$changed" -eq 1 ] && fc-cache -f "$FONT_DIR" || true
+echo ">> [20-fonts-ubuntu] done"
+{{ end -}}
