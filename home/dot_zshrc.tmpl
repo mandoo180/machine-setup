@@ -1,0 +1,64 @@
+# Managed by chezmoi — 수정은 ~/Projects/machine-setup에서.
+{{ if eq .chezmoi.os "linux" -}}
+# Homebrew on Linux
+[ -d /home/linuxbrew/.linuxbrew ] && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+{{ end -}}
+{{ if eq .chezmoi.os "darwin" -}}
+eval "$(/opt/homebrew/bin/brew shellenv)"
+{{ end -}}
+
+# oh-my-zsh
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="lambda"
+plugins=(git sudo docker kubectl history colored-man-pages)
+[ -f "$ZSH/oh-my-zsh.sh" ] && source "$ZSH/oh-my-zsh.sh"
+
+# Emacs keybindings
+bindkey -e
+
+# Environment
+export EDITOR="emacsclient -a nvim"
+export VISUAL="emacsclient -a nvim"
+export PAGER="less"
+export LANG="en_US.UTF-8"
+export LC_ALL="en_US.UTF-8"
+
+# PATH
+export PATH="$PATH:$HOME/.npm/bin"
+export PATH="$PATH:$HOME/.config/emacs/bin"
+export PATH="$PATH:$HOME/.bun/bin"
+export PATH="$PATH:$HOME/.local/bin"
+export PATH="$PATH:$HOME/.cargo/bin"
+export PATH="$PATH:$HOME/Projects/x"
+
+{{ if .isWSL -}}
+# --- WSL 전용 ---
+# GUI 앱 입력기 (fcitx5)
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+# WSLg에서 Chromium/Electron GPU 비가속 동작
+export LIBGL_ALWAYS_SOFTWARE=1
+alias open="wslview"
+
+# fcitx5 자동 시작 — WSLg 컴포지터가 zwp_input_method_v1 바인딩을 거부하므로
+# WAYLAND_DISPLAY를 비워 X11/XIM 경로로 데몬을 띄운다 (load-bearing).
+if command -v fcitx5 >/dev/null 2>&1 && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+  pgrep -x fcitx5 >/dev/null 2>&1 || (WAYLAND_DISPLAY= fcitx5 -d >/dev/null 2>&1 &)
+fi
+{{ end -}}
+
+# rebuild: 저장소 pull + 적용 / update: 패키지 업그레이드 + rebuild
+alias rebuild="chezmoi update"
+{{ if eq .chezmoi.os "darwin" -}}
+alias update="brew update && brew upgrade && brew upgrade --cask && chezmoi update"
+{{ else -}}
+alias update="sudo apt-get update && sudo apt-get upgrade -y && brew update && brew upgrade && chezmoi update"
+{{ end -}}
+
+# Shell integrations
+command -v fzf >/dev/null 2>&1 && eval "$(fzf --zsh)"
+command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
+
+# 개인 추가 설정 (있을 때만)
+[ -f "$HOME/Projects/x/x.sh" ] && source "$HOME/Projects/x/x.sh"

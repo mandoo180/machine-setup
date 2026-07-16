@@ -1,0 +1,19 @@
+[user]
+	name = Kyeongsoo
+	email = {{ .email }}
+[init]
+	defaultBranch = main
+[pull]
+	rebase = true
+	ff = true
+[push]
+	autoSetupRemote = true
+[core]
+	quotePath = false
+	pager = delta
+[interactive]
+	diffFilter = delta --color-only
+[delta]
+	navigate = true
+[credential]
+	helper = store
