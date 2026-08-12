@@ -33,7 +33,7 @@ run_context() {
         env MACHINE_SETUP_REPO=/repo FORCE_WSL="$FORCE_WSL" \
             CHEZMOI_EXTRA_ARGS="--promptString email=t@t.com" \
         bash -c "cd && bash /repo/bootstrap/ubuntu.sh"
-      # --- 검증 ---
+      # --- 검증 (공통) ---
       sudo -u tester -H bash -c "
         set -e
         eval \"\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)\"
@@ -41,9 +41,28 @@ run_context() {
         grep -q \"oh-my-zsh\" ~/.zshrc
         [ -d ~/.oh-my-zsh ]
         git config --get user.email | grep -q t@t.com
-        [ -d ~/.local/share/fonts/JetBrainsMono ]
         getent passwd tester | grep -q /usr/bin/zsh
       "
+      # --- 검증 (컨텍스트별) ---
+      if [ "$FORCE_WSL" = true ]; then
+        echo "-- WSL: GUI 프로그램 미설치 확인"
+        for p in firefox fcitx5 fcitx5-hangul fcitx5-config-qt wezterm code emacs-pgtk; do
+          if dpkg -s "$p" >/dev/null 2>&1; then echo "!! WSL에 GUI 패키지가 설치됨: $p" >&2; exit 1; fi
+        done
+        dpkg -s wslu >/dev/null
+        dpkg -s emacs-nox >/dev/null   # 터미널 전용 emacs는 설치되어야 한다
+        if [ -d /home/tester/.local/share/fonts/JetBrainsMono ]; then
+          echo "!! WSL에 Nerd Font가 설치됨 (desktop 전용)" >&2; exit 1
+        fi
+        if grep -qE "fcitx|IM_MODULE|LIBGL" /home/tester/.zshrc; then
+          echo "!! zshrc에 Linux 입력기/WSLg 설정 잔존" >&2; exit 1
+        fi
+      else
+        echo "-- desktop: GUI 앱/폰트 설치 확인"
+        dpkg -s emacs-pgtk >/dev/null
+        dpkg -s wezterm >/dev/null
+        [ -d /home/tester/.local/share/fonts/JetBrainsMono ]
+      fi
       echo "===== smoke PASS ====="
     '
 }

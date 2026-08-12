@@ -36,7 +36,7 @@ update    # 패키지 업그레이드(brew/apt/winget) + rebuild
 - `bootstrap/` — OS별 진입점 (최소 의존성 + chezmoi init --apply)
 - `home/` — chezmoi source (dotfiles + `.chezmoiscripts`)
 - `home/.chezmoidata/packages.yaml` — 패키지 목록 단일 소스
-- 실행 순서: 10-packages(before) → dotfiles → 20-fonts → 25-omz → 30-os → 40-services → 50-input-method
+- 실행 순서: 10-packages(before) → dotfiles → 20-fonts → 25-omz → 30-os → 40-services → 50-input-method(desktop)
 
 ## 수동 검증 체크리스트 (부트스트랩 후)
 
@@ -44,12 +44,18 @@ update    # 패키지 업그레이드(brew/apt/winget) + rebuild
 - [ ] 터미널에서 Nerd Font 아이콘 렌더링 (`echo " "`)
 - [ ] `git log`에서 delta 페이저 동작, `git config user.email` 확인
 - [ ] `docker run hello-world` (WSL: `wsl --shutdown` 후 재진입 + `rebuild` 필요할 수 있음)
-- [ ] 한글 입력: desktop = Super+Space(ibus), WSL = fcitx5-configtool에서 Hangul 엔진 추가 후 GUI 앱 확인
+- [ ] 한글 입력: desktop = Super+Space(ibus) / WSL = Windows IME (Linux 입력기 미설치 — 별도 설정 없음)
 - [ ] desktop: `sudo tailscale up --ssh` (최초 1회), **원격 SSH 쓸 거면 `~/.ssh/authorized_keys` 먼저 배치** (패스워드 인증 꺼져 있음)
 - [ ] Windows: 새 pwsh 7 창에서 Ctrl+r(PSFzf), `z <dir>`(zoxide)
 
 ## 주의사항
 
+- **WSL은 GUI 프로그램을 설치하지 않는다** — 브라우저·에디터·터미널은 Windows 네이티브(winget) 앱을,
+  한글 입력은 Windows IME를 쓴다. 따라서 WSL 컨텍스트에서는 firefox/fcitx5\*/wezterm/vscode/emacs-pgtk와
+  시스템·Nerd 폰트를 건너뛴다(emacs는 터미널 전용 `emacs-nox`, 링크는 `open`=`wslview`로 Windows에서 열림).
+  이미 설치된 기존 WSL 머신의 정리는 수동:
+  `sudo apt-get purge -y firefox 'fcitx5*' wezterm code && sudo rm -f /etc/apt/sources.list.d/mozilla.list /etc/apt/preferences.d/mozilla`
+  (`apt-get install emacs-nox`가 `emacs-pgtk`는 충돌로 자동 교체)
 - Nerd Fonts 버전 업그레이드: `packages.yaml`의 `nerd_version` 수정 후, 각 머신에서 `rm -rf ~/.local/share/fonts/<이름>` 후 `rebuild` (다운로드 마커가 디렉터리라서)
 - deb 직배포 앱(obsidian/slack/discord)은 `update`로 업그레이드되지 않음 — 앱 내 업데이트 또는 재설치
 - 기존 nix 머신에는 적용하지 않는다 (깨끗한 OS 전제 — 스펙 §2)

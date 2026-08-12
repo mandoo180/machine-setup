@@ -1,5 +1,7 @@
-{{ if eq .chezmoi.os "linux" -}}
+{{ if and (eq .chezmoi.os "linux") (not .isWSL) -}}
 #!/bin/bash
+# Nerd Font는 GUI 렌더링용 — WSL은 GUI 프로그램을 설치하지 않고 터미널도 Windows측이
+# 렌더링하므로 desktop에서만 설치한다 (Windows측은 20-fonts-windows가 담당).
 # fonts 목록 변경 시 재실행: {{ .packages.fonts | toJson | sha256sum }}
 set -euo pipefail
 NERD_VER="{{ .packages.fonts.nerd_version }}"

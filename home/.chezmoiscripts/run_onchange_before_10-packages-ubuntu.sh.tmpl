@@ -5,20 +5,7 @@ set -euo pipefail
 
 echo ">> [10-packages-ubuntu] third-party apt repos"
 
-# wezterm (apt.fury.io/wez)
-if [ ! -f /etc/apt/sources.list.d/wezterm.list ]; then
-  curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
-  sudo chmod 644 /usr/share/keyrings/wezterm-fury.gpg
-  echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | sudo tee /etc/apt/sources.list.d/wezterm.list >/dev/null
-fi
-
-# VS Code (packages.microsoft.com)
-if [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
-  curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --yes --dearmor -o /usr/share/keyrings/microsoft.gpg
-  echo "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null
-fi
-
-# emacs 30.x PPA (서드파티: ubuntuhandbook1)
+# emacs 30.x PPA (서드파티: ubuntuhandbook1) — desktop은 emacs-pgtk, WSL은 emacs-nox
 # Launchpad/keyserver는 간헐적 5xx가 잦아 재시도한다 (스모크 테스트에서 504 실측)
 if ! compgen -G "/etc/apt/sources.list.d/*ubuntuhandbook1*" > /dev/null; then
   for attempt in 1 2 3; do
@@ -43,30 +30,38 @@ if [ ! -f /etc/apt/sources.list.d/docker.list ]; then
 fi
 
 {{ if not .isWSL -}}
+# --- 이하 desktop 전용 repo ---
+# WSL은 GUI 프로그램을 설치하지 않으므로(브라우저/에디터/터미널 = Windows 네이티브)
+# GUI 앱 repo(wezterm/vscode)도 추가하지 않는다.
+
+# wezterm (apt.fury.io/wez)
+if [ ! -f /etc/apt/sources.list.d/wezterm.list ]; then
+  curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
+  sudo chmod 644 /usr/share/keyrings/wezterm-fury.gpg
+  echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | sudo tee /etc/apt/sources.list.d/wezterm.list >/dev/null
+fi
+
+# VS Code (packages.microsoft.com)
+if [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
+  curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --yes --dearmor -o /usr/share/keyrings/microsoft.gpg
+  echo "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list >/dev/null
+fi
+
 # tailscale (desktop만 — 스펙 §10)
 if [ ! -f /etc/apt/sources.list.d/tailscale.list ]; then
   curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
   curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
 fi
-{{ else -}}
-# firefox (WSL — 스펙 §6.2 "desktop/WSL 모두"): snap은 systemd 의존이라
-# Mozilla 공식 apt repo 사용 — 첫 부트(systemd 비활성)에서도 즉시 설치 가능
-if [ ! -f /etc/apt/sources.list.d/mozilla.list ]; then
-  sudo install -d -m 0755 /etc/apt/keyrings
-  curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc >/dev/null
-  echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | sudo tee /etc/apt/sources.list.d/mozilla.list >/dev/null
-  printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' | sudo tee /etc/apt/preferences.d/mozilla >/dev/null
-fi
 {{ end -}}
 
 echo ">> [10-packages-ubuntu] apt install"
 sudo apt-get update
+# 시스템 폰트는 GUI 렌더링용 — WSL은 제외 (터미널은 Windows측 폰트로 렌더링)
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   {{ range .packages.apt.common }}{{ . }} {{ end }} \
-  {{ range .packages.apt.fonts }}{{ . }} {{ end }} \
   docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
 {{ if .isWSL }}  {{ range .packages.apt.wsl }}{{ . }} {{ end }}
-{{ else }}  {{ range .packages.apt.desktop }}{{ . }} {{ end }} tailscale openssh-server
+{{ else }}  {{ range .packages.apt.desktop }}{{ . }} {{ end }} {{ range .packages.apt.fonts }}{{ . }} {{ end }} tailscale openssh-server
 {{ end }}
 
 echo ">> [10-packages-ubuntu] brew install (userland CLI)"

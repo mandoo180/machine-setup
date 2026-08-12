@@ -33,19 +33,9 @@ export PATH="$PATH:$HOME/Projects/x"
 
 {{ if .isWSL -}}
 # --- WSL 전용 ---
-# GUI 앱 입력기 (fcitx5)
-export GTK_IM_MODULE=fcitx
-export QT_IM_MODULE=fcitx
-export XMODIFIERS=@im=fcitx
-# WSLg에서 Chromium/Electron GPU 비가속 동작
-export LIBGL_ALWAYS_SOFTWARE=1
+# WSL에는 GUI 프로그램을 설치하지 않는다 — 링크/파일은 Windows 기본 앱으로 연다.
+# (Linux 입력기·WSLg 관련 환경변수 불필요: 한글 입력은 Windows IME가 담당)
 alias open="wslview"
-
-# fcitx5 자동 시작 — WSLg 컴포지터가 zwp_input_method_v1 바인딩을 거부하므로
-# WAYLAND_DISPLAY를 비워 X11/XIM 경로로 데몬을 띄운다 (load-bearing).
-if command -v fcitx5 >/dev/null 2>&1 && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
-  pgrep -x fcitx5 >/dev/null 2>&1 || (WAYLAND_DISPLAY= fcitx5 -d >/dev/null 2>&1 &)
-fi
 {{ end -}}
 
 # rebuild: 저장소 pull + 적용 / update: 패키지 업그레이드 + rebuild

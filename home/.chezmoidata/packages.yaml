@@ -120,7 +120,8 @@ packages:
       - font-material-icons
       - font-material-symbols
   apt:
-    # desktop/WSL 공통 (시스템 통합 계층)
+    # desktop/WSL 공통 (시스템 통합 계층) — CLI 전용.
+    # GUI 프로그램은 desktop 전용: WSL은 GUI를 설치하지 않고 Windows 네이티브 앱을 쓴다.
     common:
       - zsh              # brew zsh는 /etc/shells 문제로 apt 고정 (스펙 §6.1)
       - rename           # brew rename은 util-linux(rustup 의존성)와 충돌 — apt(Perl rename)로 설치
@@ -129,20 +130,20 @@ packages:
       - trash-cli        # nvim Snacks.explorer 안전 삭제 의존성
       - alsa-utils
       - pulseaudio-utils # pactl (pipewire 데몬과 충돌 없음)
-      - emacs-pgtk       # ppa:ubuntuhandbook1/emacs (30.x, Wayland/WSLg 네이티브)
-      - wezterm          # apt.fury.io/wez repo
     desktop:
+      - emacs-pgtk       # ppa:ubuntuhandbook1/emacs (30.x, Wayland 네이티브)
+      - wezterm          # apt.fury.io/wez repo (WSL은 Windows측 WezTerm 사용)
       - code             # packages.microsoft.com repo (WSL은 Windows측 VS Code 사용)
       - ffmpeg           # ~/Projects/fulang 비디오 파이프라인 의존성
       - vlc
       - gimp
       - ibus-hangul
+    # WSL: GUI 프로그램 미설치 — 브라우저/에디터/터미널은 Windows 네이티브,
+    # 한글 입력은 Windows IME가 담당(Linux 입력기 불필요), 링크는 wslview로 Windows에서 연다
     wsl:
       - wslu             # wslview 등
-      - firefox          # Mozilla apt repo (10-packages가 WSL에서 설정 — 스펙 §6.2)
-      - fcitx5
-      - fcitx5-hangul
-      - fcitx5-config-qt
+      - emacs-nox        # 터미널 전용 emacs (GUI 빌드 emacs-pgtk 대신)
+    # 시스템 폰트는 GUI 렌더링용 — desktop만 설치 (WSL 터미널은 Windows측 폰트 사용)
     fonts:
       - fonts-noto
       - fonts-noto-cjk

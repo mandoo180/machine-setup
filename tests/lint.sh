@@ -28,12 +28,11 @@ for f in bootstrap/*.sh tests/*.sh; do
 done
 
 # 2) 셸 템플릿: Go 템플릿 표현을 __TMPL__로 치환 후 검사. 오탐 제외:
-#    SC2034/SC2050/SC2154(치환 잔재), SC1091(source 대상 미추적 info),
-#    SC1007(빈 env 프리픽스 `VAR= cmd` 오탐 — zshrc의 WAYLAND_DISPLAY= 관용구)
+#    SC2034/SC2050/SC2154(치환 잔재), SC1091(source 대상 미추적 info)
 for f in home/.chezmoiscripts/*.sh.tmpl home/dot_zshrc.tmpl; do
   [ -f "$f" ] || continue
   echo "shellcheck(tmpl): $f"
-  strip_tmpl "$f" | $SHELLCHECK -s bash -e SC2034,SC2050,SC2154,SC1091,SC1007 - || fail=1
+  strip_tmpl "$f" | $SHELLCHECK -s bash -e SC2034,SC2050,SC2154,SC1091 - || fail=1
 done
 
 # 3) PowerShell (옵션): PSScriptAnalyzer
