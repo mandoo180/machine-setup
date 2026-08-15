@@ -47,6 +47,8 @@ Nerd Fonts v3.4.0 zip 14종(JetBrainsMono, FiraCode, Hack, Iosevka 계열, D2Cod
 - 키보드 반복 속도 최대(delay 0 / speed 31 — macOS의 빠른 키반복 상응, 재로그인 후 적용)
 - explorer 재시작으로 즉시 반영
 
+여기에 더해 Windows Terminal의 기본 프로필을 PowerShell 7로 바꿉니다. Windows 기본값은 Windows PowerShell 5.1이고, §5의 프로필은 PS7 경로(Documents\PowerShell)에만 배포되므로 이걸 바꾸지 않으면 새 탭이 프로필 없는 5.1로 열립니다. settings.json의 defaultProfile 값만 치환하므로(JSON 재직렬화 없음) 사용자가 넣은 주석·서식·키바인딩은 보존되고, 재실행해도 변화가 없으면 파일을 건드리지 않습니다. PowerShell 7 프로필 자체는 Windows Terminal이 pwsh 설치를 감지해 자동 생성하는 동적 프로필(고정 GUID 574e775e-…)이라 별도로 정의하지 않습니다. WT를 한 번도 실행하지 않은 새 머신에서는 defaultProfile만 담은 최소 settings.json을 미리 만들어 둡니다.
+
 5. 셸 환경 — PowerShell 프로필 (dotfile)
 
 Documents/PowerShell/Microsoft.PowerShell_profile.ps1이 배포되어 PS7 셸을 다음처럼 구성합니다:

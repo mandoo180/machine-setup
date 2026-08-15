@@ -18,6 +18,41 @@ $kbd = 'HKCU:\Control Panel\Keyboard'
 Set-ItemProperty -Path $kbd -Name KeyboardDelay -Value '0' -Type String
 Set-ItemProperty -Path $kbd -Name KeyboardSpeed -Value '31' -Type String
 
+# Windows Terminal 기본 프로필 = PowerShell 7 (winget 기본값은 Windows PowerShell 5.1)
+# GUID는 Windows.Terminal.PowershellCore 동적 프로필의 고정값이다. 해당 프로필은 WT가
+# pwsh 설치를 감지하면 자동 생성하므로 여기서는 defaultProfile만 가리켜 두면 된다.
+$pwshProfileGuid = '{574e775e-4f2a-5b96-ac1e-a2962a402336}'
+$wtSettingsPaths = @(
+  "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"  # Store 판
+  "$env:LOCALAPPDATA\Microsoft\Windows Terminal\settings.json"                                    # 비패키지 판
+)
+foreach ($wt in $wtSettingsPaths) {
+  if (Test-Path $wt) {
+    # 주석/서식을 보존하기 위해 JSON 재직렬화 대신 defaultProfile 값만 치환한다.
+    $raw = Get-Content $wt -Raw
+    $re = [regex]'"defaultProfile"\s*:\s*"[^"]*"'
+    $new = if ($re.IsMatch($raw)) {
+      $re.Replace($raw, """defaultProfile"": ""$pwshProfileGuid""", 1)
+    } else {
+      $raw -replace '^\s*\{', "{`n    ""defaultProfile"": ""$pwshProfileGuid"","
+    }
+    if ($new -ne $raw) {
+      Set-Content -Path $wt -Value $new -Encoding utf8 -NoNewline
+      Write-Host ">> [30-os-settings-windows] Windows Terminal 기본 프로필 -> pwsh 7 ($wt)"
+    }
+  } elseif ($wt -like '*WindowsTerminal_8wekyb3d8bbwe*') {
+    # WT를 아직 한 번도 실행하지 않은 새 머신: 최소 설정만 미리 남겨 둔다.
+    New-Item -ItemType Directory -Force -Path (Split-Path $wt) | Out-Null
+    Set-Content -Path $wt -Encoding utf8 -Value @"
+{
+    "`$schema": "https://aka.ms/terminal-profiles-schema",
+    "defaultProfile": "$pwshProfileGuid"
+}
+"@
+    Write-Host ">> [30-os-settings-windows] Windows Terminal settings.json 생성 (기본 프로필 pwsh 7)"
+  }
+}
+
 # 탐색기 재시작 (확장자/숨김/다크모드 즉시 반영)
 Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
 Write-Host ">> [30-os-settings-windows] done (키보드 반복 속도는 재로그인 후 적용)"
