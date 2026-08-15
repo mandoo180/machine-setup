@@ -1,0 +1,82 @@
+{{ if eq .chezmoi.os "windows" -}}
+$ErrorActionPreference = 'Stop'
+Write-Host ">> [50-input-method-windows] 한국어 입력기/서식"
+
+# TIP 문자열은 Windows 고정값이다 (Microsoft IME(한국어) / US 키보드).
+$koTip = '0412:{A028AE76-01B1-46C2-99C4-ACD9858AE02F}{B5FE1F02-D5F2-4445-9C03-C568F23C99A1}'
+$usTip = '0409:00000409'
+
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+  [Security.Principal.WindowsBuiltInRole]::Administrator)
+
+# 1. 한국어 IME 등록
+# ko가 언어 목록에 있는데도 InputMethodTips가 비어 있는 경우가 있다 — 한국 출고
+# OEM 머신이 그렇다(언어팩만 깔려 나옴). 그 상태는 "한국어가 설치돼 있는데 한글은
+# 못 치는" 머신이라 목록만 보고 판단하면 놓친다. tip 유무로 판정한다.
+# 언어팩이 아예 없는 머신이면 ko 추가 시 Windows가 기본 입력(Basic typing)을
+# 자동으로 내려받는다. 그래도 IME가 안 뜨면 설정 > 언어에서 기본 입력을 추가한다.
+$list = Get-WinUserLanguageList
+$ko = $null
+foreach ($e in $list) { if ($e.LanguageTag -eq 'ko') { $ko = $e } }
+$changed = $false
+if (-not $ko) {
+  $list.Add('ko')
+  foreach ($e in $list) { if ($e.LanguageTag -eq 'ko') { $ko = $e } }
+  $changed = $true
+  Write-Host ">> [50-input-method-windows] 언어 목록에 ko 추가"
+}
+if ($ko -and ($ko.InputMethodTips -notcontains $koTip)) {
+  $ko.InputMethodTips.Add($koTip)
+  $changed = $true
+  Write-Host ">> [50-input-method-windows] 한국어 IME(0412) 등록"
+}
+if ($changed) { Set-WinUserLanguageList -LanguageList $list -Force }
+
+# 2. 표시 언어는 영어로 고정
+# ko가 목록 0번이고 ko-KR 언어팩이 깔려 있으면 다음 로그인에 Windows UI 전체가
+# 한국어로 넘어간다(위 Set-WinUserLanguageList가 경고로 알려주는 그 동작이다).
+# UI는 영어로 두고 입력·서식만 한국어로 쓰는 게 목표이므로 명시적으로 못박는다.
+# 목록 순서를 뒤집지 않고 오버라이드를 쓰는 이유: 순서를 바꾸면 표시 언어뿐 아니라
+# 앱 현지화·지역 콘텐츠 우선순위까지 통째로 영어로 끌려간다.
+$uiCur = Get-WinUILanguageOverride
+$uiCurName = if ($uiCur) { $uiCur.Name } else { '' }
+if ($uiCurName -ne 'en-US') {
+  Set-WinUILanguageOverride -Language en-US
+  Write-Host ">> [50-input-method-windows] 표시 언어 en-US 고정"
+}
+
+# 3. 기본 입력기는 영어
+# 새 창/로그인이 한글 모드로 시작하면 터미널·IDE 단축키가 전부 어긋난다.
+$defCur = Get-WinDefaultInputMethodOverride
+$defCurTip = if ($defCur) { $defCur.InputMethodTip } else { '' }
+if ($defCurTip -ne $usTip) {
+  Set-WinDefaultInputMethodOverride -InputTip $usTip
+  Write-Host ">> [50-input-method-windows] 기본 입력기 = US"
+}
+
+# 4. 지역 서식 ko-KR (날짜 2026-08-15, 통화 ₩)
+# 표시 언어(2번)와는 독립된 축이다. Get-Culture는 프로세스 캐시라 멱등 판정에
+# 쓸 수 없으므로 레지스트리의 LocaleName을 본다.
+$intl = Get-ItemProperty 'HKCU:\Control Panel\International'
+if ($intl.LocaleName -ne 'ko-KR') {
+  Set-Culture -CultureInfo ko-KR
+  Write-Host ">> [50-input-method-windows] 지역 서식 ko-KR (새 프로세스부터 적용)"
+}
+
+# 5. 비유니코드(시스템) 로캘 CP949 — 관리자 필요
+# 레거시 한국어 앱이 CP1252로 디코딩돼 글자가 깨지는 것을 막는다. 부트스트랩은
+# 비관리자 실행이 기본이므로(README 1절), 권한이 없으면 apply를 죽이지 않고
+# 안내만 남긴다 — 50-input-method-gnome이 비GUI 세션을 다루는 방식과 같다.
+$acp = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Nls\CodePage').ACP
+if ($acp -ne '949') {
+  if ($isAdmin) {
+    Set-WinSystemLocale -SystemLocale ko-KR
+    Write-Host ">> [50-input-method-windows] 비유니코드 로캘 ko-KR/CP949 — 재부팅 후 적용"
+  } else {
+    Write-Host ">> [50-input-method-windows] 비유니코드 로캘이 CP$acp — 관리자 PowerShell에서 수동 실행:"
+    Write-Host ">>   Set-WinSystemLocale -SystemLocale ko-KR   # 재부팅 필요"
+  }
+}
+
+Write-Host ">> [50-input-method-windows] done (한/영: 오른쪽 Alt, 한자: 오른쪽 Ctrl, 레이아웃 전환: Win+Space)"
+{{ end -}}
