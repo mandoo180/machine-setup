@@ -214,7 +214,8 @@ packages:
       - wez.wezterm
       - Microsoft.VisualStudioCode
       - Docker.DockerDesktop
-      - tailscale.Tailscale
+      # winget의 --id --exact는 대소문자를 구분한다 (tailscale.* 는 매치 안 됨)
+      - Tailscale.Tailscale
       - AgileBits.1Password
       - SlackTechnologies.Slack
       - Discord.Discord

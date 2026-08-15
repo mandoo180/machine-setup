@@ -8,3 +8,16 @@
 [data]
     email = {{ $email | quote }}
     isWSL = {{ $isWSL }}
+{{ if eq .chezmoi.os "windows" }}
+# .ps1은 pwsh 7로 실행한다 (기본값은 Windows PowerShell 5.1).
+# chezmoi는 생성 스크립트를 BOM 없는 UTF-8로 쓰는데, 5.1은 BOM이 없으면 ANSI
+# 코드 페이지로 읽는다 — 한국어 UI 머신이라도 ACP는 CP1252인 경우가 있다.
+# .chezmoiscripts의 한글·화살표(→)에 들어 있는 0x92 바이트가 CP1252에서 '(오른쪽
+# 작은따옴표)로 디코딩되고, PowerShell은 이를 문자열 종결자로 취급해 그 줄이
+# 통째로 먹힌다. 실측: 26-psfzf-windows가 "Unexpected token '}'"로 죽고 그 뒤
+# 30-os-settings가 아예 실행되지 않았다. pwsh 7은 같은 파일을 UTF-8로 읽는다.
+# 부트스트랩이 chezmoi init 전에 Microsoft.PowerShell을 깔므로 항상 존재한다.
+[interpreters.ps1]
+    command = "pwsh"
+    args = ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"]
+{{ end }}
