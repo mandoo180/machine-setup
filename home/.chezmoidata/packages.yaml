@@ -124,6 +124,7 @@ packages:
     # GUI 프로그램은 desktop 전용: WSL은 GUI를 설치하지 않고 Windows 네이티브 앱을 쓴다.
     common:
       - zsh              # brew zsh는 /etc/shells 문제로 apt 고정 (스펙 §6.1)
+      - locales          # en_US.UTF-8 생성용 (15-locale-ubuntu). 24.04 기본 이미지에 미설치
       - rename           # brew rename은 util-linux(rustup 의존성)와 충돌 — apt(Perl rename)로 설치
       - build-essential
       - xclip

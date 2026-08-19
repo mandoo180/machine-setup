@@ -36,7 +36,7 @@ update    # 패키지 업그레이드(brew/apt/winget) + rebuild
 - `bootstrap/` — OS별 진입점 (최소 의존성 + chezmoi init --apply)
 - `home/` — chezmoi source (dotfiles + `.chezmoiscripts`)
 - `home/.chezmoidata/packages.yaml` — 패키지 목록 단일 소스
-- 실행 순서: 10-packages(before) → dotfiles → 20-fonts → 25-omz → 30-os → 40-services → 50-input-method(desktop)
+- 실행 순서: 10-packages(before) → dotfiles → 15-locale(ubuntu) → 20-fonts → 25-omz → 30-os → 40-services → 50-input-method(desktop)
 
 ## 수동 검증 체크리스트 (부트스트랩 후)
 

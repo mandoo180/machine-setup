@@ -1,0 +1,34 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+# zshrc가 LANG/LC_ALL=en_US.UTF-8을 export하지만 Ubuntu는 해당 로케일을 생성해 두지 않는다
+# (24.04 기본 이미지: locales 패키지 미설치, locale -a = C/C.utf8/POSIX뿐).
+# 그 결과 모든 셸·brew 호출이 경고를 뱉는다:
+#   /bin/bash: warning: setlocale: LC_ALL: cannot change locale (en_US.UTF-8)
+#   .../Homebrew/Library/Homebrew/utils/os.sh: line 110: warning: setlocale: ...
+# locale-gen은 apt의 locales 패키지(apt.common)가 제공하므로 10-packages 뒤에 실행한다.
+set -euo pipefail
+# 이 스크립트 자신도 깨진 로케일을 상속받는다 — 하위 명령까지 경고하지 않도록 고정
+export LC_ALL=C
+
+if locale -a 2>/dev/null | grep -qi -x -e en_US.utf8 -e en_US.UTF-8; then
+  echo ">> [15-locale-ubuntu] en_US.UTF-8 이미 생성됨 — 생략"
+else
+  echo ">> [15-locale-ubuntu] en_US.UTF-8 생성"
+  if ! grep -qxF 'en_US.UTF-8 UTF-8' /etc/locale.gen; then
+    # 기본 locale.gen은 전 항목이 주석 처리되어 있다 — 주석 해제, 없으면 추가
+    sudo sed -i 's/^[[:space:]]*#[[:space:]]*en_US\.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+    grep -qxF 'en_US.UTF-8 UTF-8' /etc/locale.gen \
+      || echo 'en_US.UTF-8 UTF-8' | sudo tee -a /etc/locale.gen >/dev/null
+  fi
+  sudo locale-gen
+fi
+
+# /etc/default/locale은 zsh 바깥(systemd 유닛·ssh·cron·bash)의 기본값 —
+# C.UTF-8로 남겨 두면 zshrc를 거치지 않는 경로에서 같은 경고가 재발한다.
+if ! grep -qxF 'LANG=en_US.UTF-8' /etc/default/locale 2>/dev/null; then
+  echo ">> [15-locale-ubuntu] /etc/default/locale → LANG=en_US.UTF-8"
+  sudo update-locale LANG=en_US.UTF-8
+fi
+
+echo ">> [15-locale-ubuntu] done"
+{{ end -}}
