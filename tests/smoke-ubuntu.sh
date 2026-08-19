@@ -42,6 +42,9 @@ run_context() {
         [ -d ~/.oh-my-zsh ]
         git config --get user.email | grep -q t@t.com
         getent passwd tester | grep -q /usr/bin/zsh
+        locale -a | grep -qx en_US.utf8
+        grep -qx LANG=en_US.UTF-8 /etc/default/locale
+        LC_ALL=en_US.UTF-8 locale charmap | grep -qx UTF-8
       "
       # --- 검증 (컨텍스트별) ---
       if [ "$FORCE_WSL" = true ]; then
