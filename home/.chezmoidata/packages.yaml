@@ -139,13 +139,18 @@ packages:
       - vlc
       - gimp
       - ibus-hangul
-    # WSL: GUI 프로그램 미설치 — 브라우저/에디터/터미널은 Windows 네이티브,
-    # 한글 입력은 Windows IME가 담당(Linux 입력기 불필요), 링크는 wslview로 Windows에서 연다
+    # WSL: apt로는 GUI 프로그램을 설치하지 않는다 — 브라우저/에디터/터미널은 Windows 네이티브,
+    # 한글 입력은 Windows IME가 담당(Linux 입력기 불필요), 링크는 wslview로 Windows에서 연다.
+    # 폰트는 예외다: WSLg로 GUI 앱을 직접 띄우는 경우(소스 빌드 Emacs PGTK 등)가 있고
+    # 그쪽은 리눅스 fontconfig만 보므로 아래 fonts와 20-fonts-ubuntu가 WSL에도 적용된다.
     wsl:
       - wslu             # wslview 등
-      - emacs-nox        # 터미널 전용 emacs (GUI 빌드 emacs-pgtk 대신)
-    # 시스템 폰트는 GUI 렌더링용 — desktop만 설치 (WSL 터미널은 Windows측 폰트 사용)
+      - emacs-nox        # apt로 얹는 터미널 전용 emacs (GUI 빌드 emacs-pgtk 대신)
+    # 시스템 폰트는 GUI 렌더링용 — desktop/WSL 공통.
+    # WSL 터미널 자체는 Windows측 폰트로 그려지지만, WSLg로 띄운 GUI 앱은 리눅스
+    # fontconfig만 조회하고 /mnt/c의 Windows 폰트는 검색 경로 밖이라 보이지 않는다.
     fonts:
+      - fontconfig       # fc-cache/fc-list — WSL엔 GUI 의존성이 없어 자동으로 딸려오지 않는다
       - fonts-noto
       - fonts-noto-cjk
       - fonts-noto-color-emoji

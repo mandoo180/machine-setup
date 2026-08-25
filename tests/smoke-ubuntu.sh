@@ -54,9 +54,11 @@ run_context() {
         done
         dpkg -s wslu >/dev/null
         dpkg -s emacs-nox >/dev/null   # 터미널 전용 emacs는 설치되어야 한다
-        if [ -d /home/tester/.local/share/fonts/JetBrainsMono ]; then
-          echo "!! WSL에 Nerd Font가 설치됨 (desktop 전용)" >&2; exit 1
-        fi
+        # 폰트는 GUI 패키지와 달리 WSL에도 설치한다 — WSLg로 띄운 GUI 앱은 리눅스
+        # fontconfig만 조회하고 /mnt/c의 Windows 폰트는 검색 경로 밖이다
+        dpkg -s fontconfig >/dev/null
+        dpkg -s fonts-noto-cjk >/dev/null
+        [ -d /home/tester/.local/share/fonts/JetBrainsMono ]
         if grep -qE "fcitx|IM_MODULE|LIBGL" /home/tester/.zshrc; then
           echo "!! zshrc에 Linux 입력기/WSLg 설정 잔존" >&2; exit 1
         fi
@@ -64,6 +66,7 @@ run_context() {
         echo "-- desktop: GUI 앱/폰트 설치 확인"
         dpkg -s emacs-pgtk >/dev/null
         dpkg -s wezterm >/dev/null
+        dpkg -s fontconfig >/dev/null
         [ -d /home/tester/.local/share/fonts/JetBrainsMono ]
       fi
       echo "===== smoke PASS ====="
