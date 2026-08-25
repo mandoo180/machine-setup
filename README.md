@@ -36,6 +36,7 @@ update    # 패키지 업그레이드(brew/apt/winget) + rebuild
 - `bootstrap/` — OS별 진입점 (최소 의존성 + chezmoi init --apply)
 - `home/` — chezmoi source (dotfiles + `.chezmoiscripts`)
 - `home/.chezmoidata/packages.yaml` — 패키지 목록 단일 소스
+- [`docs/troubleshooting.md`](docs/troubleshooting.md) — 운용 중 겪은 문제와 복구 절차
 - 실행 순서: 10-packages(before) → dotfiles → 15-locale(ubuntu) → 20-fonts → 25-omz → 30-os → 40-services → 50-input-method(desktop)
 
 ## 수동 검증 체크리스트 (부트스트랩 후)
@@ -56,6 +57,9 @@ update    # 패키지 업그레이드(brew/apt/winget) + rebuild
   이미 설치된 기존 WSL 머신의 정리는 수동:
   `sudo apt-get purge -y firefox 'fcitx5*' wezterm code && sudo rm -f /etc/apt/sources.list.d/mozilla.list /etc/apt/preferences.d/mozilla`
   (`apt-get install emacs-nox`가 `emacs-pgtk`는 충돌로 자동 교체)
+- WSL에서 GUI 앱을 띄웠는데 **작업표시줄 아이콘만 뜨고 창이 안 보이면** 앱 문제가 아니라 WSLg 그래픽
+  리디렉션 고장이다 — `grep use_gfxredir /mnt/wslg/weston.log`가 `0`이면 `wsl --shutdown` 후 재진입
+  ([상세](docs/troubleshooting.md#wsl-gui-앱-창이-안-뜬다-작업표시줄-아이콘만-보임))
 - Nerd Fonts 버전 업그레이드: `packages.yaml`의 `nerd_version` 수정 후, 각 머신에서 `rm -rf ~/.local/share/fonts/<이름>` 후 `rebuild` (다운로드 마커가 디렉터리라서)
 - deb 직배포 앱(obsidian/slack/discord)은 `update`로 업그레이드되지 않음 — 앱 내 업데이트 또는 재설치
 - 기존 nix 머신에는 적용하지 않는다 (깨끗한 OS 전제 — 스펙 §2)
