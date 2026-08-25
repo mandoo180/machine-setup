@@ -51,9 +51,12 @@ update    # 패키지 업그레이드(brew/apt/winget) + rebuild
 
 ## 주의사항
 
-- **WSL은 GUI 프로그램을 설치하지 않는다** — 브라우저·에디터·터미널은 Windows 네이티브(winget) 앱을,
-  한글 입력은 Windows IME를 쓴다. 따라서 WSL 컨텍스트에서는 firefox/fcitx5\*/wezterm/vscode/emacs-pgtk와
-  시스템·Nerd 폰트를 건너뛴다(emacs는 터미널 전용 `emacs-nox`, 링크는 `open`=`wslview`로 Windows에서 열림).
+- **WSL은 apt로 GUI 프로그램을 설치하지 않는다** — 브라우저·에디터·터미널은 Windows 네이티브(winget) 앱을,
+  한글 입력은 Windows IME를 쓴다. 따라서 WSL 컨텍스트에서는 firefox/fcitx5\*/wezterm/vscode/emacs-pgtk를
+  건너뛴다(emacs는 터미널 전용 `emacs-nox`, 링크는 `open`=`wslview`로 Windows에서 열림).
+  **폰트는 예외로 WSL에도 설치한다** — WSLg로 GUI 앱을 직접 띄우면(소스 빌드 Emacs PGTK 등) 리눅스
+  fontconfig만 조회하고 `/mnt/c`의 Windows 폰트는 검색 경로 밖이라 보이지 않는다
+  ([상세](docs/troubleshooting.md#wsl-gui-앱이-windows에-설치된-폰트를-못-찾는다)).
   이미 설치된 기존 WSL 머신의 정리는 수동:
   `sudo apt-get purge -y firefox 'fcitx5*' wezterm code && sudo rm -f /etc/apt/sources.list.d/mozilla.list /etc/apt/preferences.d/mozilla`
   (`apt-get install emacs-nox`가 `emacs-pgtk`는 충돌로 자동 교체)

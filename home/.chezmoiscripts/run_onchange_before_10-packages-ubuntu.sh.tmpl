@@ -56,12 +56,13 @@ fi
 
 echo ">> [10-packages-ubuntu] apt install"
 sudo apt-get update
-# 시스템 폰트는 GUI 렌더링용 — WSL은 제외 (터미널은 Windows측 폰트로 렌더링)
+# 시스템 폰트는 desktop/WSL 공통 — WSLg로 띄운 GUI 앱은 리눅스 fontconfig만 조회한다
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   {{ range .packages.apt.common }}{{ . }} {{ end }} \
+  {{ range .packages.apt.fonts }}{{ . }} {{ end }} \
   docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
 {{ if .isWSL }}  {{ range .packages.apt.wsl }}{{ . }} {{ end }}
-{{ else }}  {{ range .packages.apt.desktop }}{{ . }} {{ end }} {{ range .packages.apt.fonts }}{{ . }} {{ end }} tailscale openssh-server
+{{ else }}  {{ range .packages.apt.desktop }}{{ . }} {{ end }} tailscale openssh-server
 {{ end }}
 
 echo ">> [10-packages-ubuntu] brew install (userland CLI)"
