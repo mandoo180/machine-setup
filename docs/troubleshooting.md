@@ -53,3 +53,55 @@ GPU 가속 사용 여부와 무관하다(OpenGL을 전혀 쓰지 않는 `xeyes`�
 docker inspect <name> --format '{{.HostConfig.RestartPolicy.Name}}'
 systemctl is-enabled docker
 ```
+
+## WSL: GUI 앱이 Windows에 설치된 폰트를 못 찾는다
+
+**증상** — WSLg로 띄운 GUI 앱에 지정한 폰트가 적용되지 않는다. Windows에는 분명히 설치돼 있고
+Windows 네이티브 앱에서는 잘 보이는 폰트다. Emacs처럼 후보 목록에서 첫 설치본을 고르는 설정이라면
+조용히 맨 끝 fallback(DejaVu Sans Mono 등)으로 떨어지므로 오류 한 줄 없이 "그냥 못생기게" 뜬다.
+한글은 더 나빠서, 후보가 전멸하면 fontset 항목 자체가 등록되지 않아 Unifont-JP 비트맵으로 렌더된다.
+
+**원인** — WSL은 Windows 폰트를 fontconfig에 공유하지 않는다. 검색 경로는 `~/.fonts`,
+`~/.local/share/fonts`, `/usr/local/share/fonts`, `/usr/share/fonts`뿐이고 `/mnt/c/...`는 포함되지 않는다.
+Windows에서 설치한 폰트는 대개 시스템이 아니라 **사용자 폰트 디렉터리**
+(`/mnt/c/Users/<user>/AppData/Local/Microsoft/Windows/Fonts`)에 들어가므로 리눅스 쪽에서는 전혀 보이지 않는다.
+
+이 저장소가 오랫동안 WSL에서 폰트 설치를 건너뛴 것도 같은 전제 때문이었다 — "WSL엔 GUI가 없으니
+폰트도 불필요, 터미널은 Windows측이 렌더링". WSLg로 GUI 앱을 직접 띄우는 순간 그 전제가 깨진다.
+
+**판별** — 리눅스 쪽 fontconfig에 폰트가 있는지만 보면 된다. `fc-list`가 없다면 그 자체가 증상이다
+(`fontconfig` 패키지는 GUI 의존성으로 딸려오는데 WSL엔 GUI 패키지가 없다).
+
+```bash
+/usr/bin/fc-list : family | tr ',' '\n' | sort -u | grep -i '<폰트명>'
+```
+
+Emacs라면 GUI 프레임에서 직접 물어보는 편이 확실하다.
+
+```elisp
+(find-font (font-spec :family "D2CodingLigature Nerd Font"))  ; nil이면 없는 것
+(face-attribute 'default :family)                             ; 실제로 적용된 것
+(car (internal-char-font nil ?한))                             ; 한글이 어느 폰트로 그려지는지
+```
+
+`PATH`에 linuxbrew가 있으면 `fc-list`/`fc-match`가 brew 쪽(별도 설정·캐시)으로 잡히므로
+**반드시 `/usr/bin/fc-list`를 절대경로로** 부른다. GUI 앱이 링크하는 것은 시스템 `libfontconfig`이다.
+
+```bash
+ldd $(command -v emacs) | grep fontconfig   # /lib/x86_64-linux-gnu/libfontconfig.so.1
+```
+
+**해결** — `rebuild`. 이제 WSL에도 시스템 폰트(`apt.fonts`)와 Nerd Font(`20-fonts-ubuntu`)가
+설치된다. `packages.yaml`의 `nerd_zips`에 이미 D2Coding·Iosevka·IosevkaTerm·IosevkaTermSlab·
+Terminus가 들어 있으므로 별도 추가 없이 채워진다.
+
+`/mnt/c`의 Windows 폰트 디렉터리를 `~/.config/fontconfig/fonts.conf`에 `<dir>`로 얹는 방법도
+동작하기는 한다. 쓰지 않는다 — drvfs I/O라 수백 개 스캔이 느리고 앱 시작·폰트 조회가 눈에 띄게 밀린다.
+같은 이유로 Windows 사용자 폰트 디렉터리 전체 복사도 피한다(Iosevka Nerd Font 전 웨이트만 2.6G).
+
+**오진 방지** — 빌드나 앱 설정 문제로 보기 쉽지만 fontconfig 계층의 문제다. 같은 설정이 Windows
+네이티브 앱에서 잘 되는 것은 반증이 아니라 오히려 증상 그대로다(그쪽은 Windows 폰트 목록을 본다).
+GUI 앱 여러 개가 동시에 같은 폰트를 놓치는지 확인하면 앱 버그와 구분된다.
+
+**남는 것** — 한자(漢)는 D2Coding 계열이 상용한자를 다 덮지 않아 여전히 폴백이 걸릴 수 있다.
+`apt.fonts`의 `fonts-noto-cjk`가 설치되면 fontconfig 폴백으로 메워진다.
