@@ -33,19 +33,55 @@ WSLg가 창 제목에 직접 경고를 붙이기도 한다 (`enable_copy_warning
 [WARN:COPY MODE] <원래 제목> (Ubuntu-24.04)
 ```
 
-**해결** — Windows PowerShell에서 `wsl --shutdown` 후 재진입.
+**해결** — weston만 재시작한다. VM·docker·현재 세션 전부 유지된다.
 
-기동 시점의 일회성 오류이고 weston은 재시도하지 않으므로, 그 프로세스가 살아 있는 한 copy mode가 유지된다.
-weston은 사용자 배포판이 아니라 **WSLg 시스템 배포판**에서 돌기 때문에 `wsl -t <distro>`(배포판만 종료)로는
-재기동되지 않는다 — VM 전체를 내려야 한다. 재진입 후 `use_gfxredir = 1`이면 복구된 것이다.
-반복되면 `wsl --update`.
+```bash
+wsl.exe --system -e pkill -x weston
+```
+
+weston은 사용자 배포판이 아니라 **WSLg 시스템 배포판**에서 돌기 때문에 `wsl --system`으로 들어가야 한다.
+그 안의 감독 프로세스 WSLGd가 2초 안에 weston을 되살리고, 그 시점엔 공유 메모리 마운트가 이미 준비돼
+있으므로 `use_gfxredir = 1`로 올라온다. 확인:
+
+```bash
+grep -oE 'use_gfxredir = [01]' /mnt/wslg/weston.log | tail -1
+```
+
+재시작 이력이 쌓이면 `use_gfxredir` 줄이 여러 개가 되므로 **반드시 마지막 줄**을 봐야 한다. 첫 줄만 보면
+이미 복구된 뒤에도 계속 고장으로 읽는다.
+
+RDP 세션이 끊기므로 **열려 있던 GUI 창은 함께 닫힌다.** GUI 앱을 띄우기 전에 실행한다.
+
+`wsl --shutdown` 후 재진입도 듣지만 결국 "weston을 나중에 다시 띄운다"의 비싼 버전이다 — VM을 내리므로
+docker 컨테이너와 WSL 안의 모든 세션이 함께 끊긴다. weston 재시작이 듣지 않을 때만 쓰고, 그래도 반복되면
+`wsl --update`.
+
+**재발한다** — 기동 시점의 경합이라 부팅마다 다시 걸릴 수 있다. 관측 3회:
+
+| 커널 부팅(`uptime -s`) | weston 기동 | 간격 | 결과 |
+|---|---|---|---|
+| 2026-08-25 09:03:02 | 09:08:11 | +5m09s | `use_gfxredir = 0` |
+| 2026-08-25 10:13:46 | 10:13:54 | **+8s** | `= 1` |
+| 2026-08-27 08:44:46 | 08:53:31 | +8m45s | `= 0` |
+
+VM 커널이 먼저 떠 있고 배포판(`/sbin/init`)이 몇 분 뒤 시작될 때 실패했다. 공유 메모리 마운트가 준비되기
+전에 weston이 RDP 백엔드를 초기화해 버리는 경합으로 보이지만 n=3 상관이라 확정은 아니다. 근거는, 고장
+상태에서 시스템 배포판에 들어가 보면 마운트가 이미 정상이라는 점이다 — 그래서 재시작만으로 복구된다.
+
+```bash
+wsl.exe --system -e ls -ld /mnt/shared_memory
+```
+
+**자동 감지** — WSL 컨텍스트의 `.zshrc`가 로그인 시 1회 상태를 확인해 `use_gfxredir = 0`이면 경고한다.
+`wslg-status`(현재 상태), `wslg-fix`(위 재시작) 함수도 같이 들어 있다. 자동 복구는 하지 않는다 —
+열려 있는 GUI 창을 말없이 닫아 버리기 때문이다.
 
 **오진 방지** — 특정 앱의 버그가 아니다. WSLg를 쓰는 모든 GUI 앱이 동시에 영향을 받으며 X11/Wayland,
 GPU 가속 사용 여부와 무관하다(OpenGL을 전혀 쓰지 않는 `xeyes`도 똑같이 투명하게 나온다).
 **한 앱만 안 뜨는 상황이면 원인이 다르다.** 같은 공유 메모리 경로를 쓰는 PulseAudio RDP sink도 함께 죽으므로,
 `/mnt/wslg/pulseaudio.log`에 `[rdp-sink] module-rdp-sink.c: Connected failed`가 같이 찍혀 있으면 이 건이 맞다.
 
-**부수 효과** — `wsl --shutdown`은 VM을 내리므로 docker 컨테이너가 함께 정지하고 WSL 안의 세션도 모두 끊긴다.
+**폴백으로 `wsl --shutdown`을 쓸 때** — VM을 내리므로 docker 컨테이너가 함께 정지하고 WSL 안의 세션도 모두 끊긴다.
 컨테이너에 `restart: unless-stopped`(또는 `always`)가 걸려 있고 `systemctl is-enabled docker`가 `enabled`면
 재진입 시 자동 복구되므로, 사전에 두 가지만 확인하면 손실 없이 재시작할 수 있다.
 
