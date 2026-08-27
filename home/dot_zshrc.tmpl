@@ -36,6 +36,31 @@ export PATH="$PATH:$HOME/Projects/x"
 # WSL에는 GUI 프로그램을 설치하지 않는다 — 링크/파일은 Windows 기본 앱으로 연다.
 # (Linux 입력기·WSLg 관련 환경변수 불필요: 한글 입력은 Windows IME가 담당)
 alias open="wslview"
+
+# WSLg 그래픽 리디렉션 점검 — 기동 경합으로 use_gfxredir=0 이 되면 GUI 앱이 전부
+# 작업표시줄 아이콘만 뜨고 창은 안 보인다. 배경·근거는 machine-setup의
+# docs/troubleshooting.md 참고. 마지막 줄이 현재 상태다(재시작하면 줄이 늘어난다).
+_wslg_gfxredir() {
+  grep -oE 'use_gfxredir = [01]' /mnt/wslg/weston.log 2>/dev/null | tail -1 | awk '{print $NF}'
+}
+wslg-status() {
+  case "$(_wslg_gfxredir)" in
+    1) echo "WSLg: 정상 (use_gfxredir=1)" ;;
+    0) echo "WSLg: 그래픽 리디렉션 꺼짐 (use_gfxredir=0) — 'wslg-fix' 실행" ;;
+    *) echo "WSLg: 상태 불명 (/mnt/wslg/weston.log 없음)" ;;
+  esac
+}
+wslg-fix() {
+  wsl.exe --system -e pkill -x weston
+  echo "weston 재시작 요청 — 열려 있던 GUI 창은 함께 닫힙니다."
+}
+# 부팅당 1회 경고. 자동 복구는 하지 않는다 — 열려 있는 GUI 창을 말없이 닫아 버린다.
+if [ -r /mnt/wslg/weston.log ] && [ ! -e "${XDG_RUNTIME_DIR:-/tmp}/.wslg-checked" ]; then
+  : > "${XDG_RUNTIME_DIR:-/tmp}/.wslg-checked" 2>/dev/null
+  if [ "$(_wslg_gfxredir)" = 0 ]; then
+    echo "!! WSLg 그래픽 리디렉션 꺼짐 — GUI 앱 창이 안 뜹니다. 'wslg-fix' 실행" >&2
+  fi
+fi
 {{ end -}}
 
 # rebuild: 저장소 pull + 적용 / update: 패키지 업그레이드 + rebuild
