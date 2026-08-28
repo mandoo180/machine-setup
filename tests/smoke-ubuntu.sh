@@ -49,11 +49,10 @@ run_context() {
       # --- 검증 (컨텍스트별) ---
       if [ "$FORCE_WSL" = true ]; then
         echo "-- WSL: GUI 프로그램 미설치 확인"
-        for p in firefox fcitx5 fcitx5-hangul fcitx5-config-qt wezterm code emacs-pgtk; do
+        for p in firefox fcitx5 fcitx5-hangul fcitx5-config-qt wezterm code emacs-pgtk emacs-nox; do
           if dpkg -s "$p" >/dev/null 2>&1; then echo "!! WSL에 GUI 패키지가 설치됨: $p" >&2; exit 1; fi
         done
         dpkg -s wslu >/dev/null
-        dpkg -s emacs-nox >/dev/null   # 터미널 전용 emacs는 설치되어야 한다
         # 폰트는 GUI 패키지와 달리 WSL에도 설치한다 — WSLg로 띄운 GUI 앱은 리눅스
         # fontconfig만 조회하고 /mnt/c의 Windows 폰트는 검색 경로 밖이다
         dpkg -s fontconfig >/dev/null
@@ -64,7 +63,10 @@ run_context() {
         fi
       else
         echo "-- desktop: GUI 앱/폰트 설치 확인"
-        dpkg -s emacs-pgtk >/dev/null
+        # Emacs는 setup 대상이 아니다 — 각 머신에서 직접 설치하므로 apt로 얹히면 안 된다
+        for p in emacs-pgtk emacs-nox; do
+          if dpkg -s "$p" >/dev/null 2>&1; then echo "!! emacs가 apt로 설치됨: $p" >&2; exit 1; fi
+        done
         dpkg -s wezterm >/dev/null
         dpkg -s fontconfig >/dev/null
         [ -d /home/tester/.local/share/fonts/JetBrainsMono ]

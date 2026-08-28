@@ -101,7 +101,7 @@ fi
 
 # --- emacs-plus Emacs.app → /Applications (Spotlight) ---
 # `|| true`: Cellar 경로 부재 시 find가 exit 1 → pipefail로 스크립트 전체가 중단되는 것 방지
-EMACS_APP="$(find /opt/homebrew/Cellar/emacs-plus@30 -maxdepth 2 -name "Emacs.app" -type d 2>/dev/null | head -1 || true)"
+EMACS_APP="$(find /opt/homebrew/Cellar/emacs-plus@* -maxdepth 2 -name "Emacs.app" -type d 2>/dev/null | head -1 || true)"
 if [ -n "$EMACS_APP" ] && [ ! -d /Applications/Emacs.app ]; then
   echo ">> copying Emacs.app to /Applications"
   cp -R "$EMACS_APP" /Applications/

@@ -63,23 +63,16 @@ packages:
       - gawk
       - colima
       - docker       # CLI만 (데몬은 colima)
-      - d12frosted/emacs-plus/emacs-plus@30
+      - d12frosted/emacs-plus/emacs-plus@31
     casks:
       - arc
       - wezterm
       - visual-studio-code
       - zed
-      - godot
       - figma
       - blender
-      - love
-      - tiled
       - obsidian
       - gimp
-      - slack
-      - discord
-      - telegram
-      - spotify
       - vlc
       - 1password
       - appcleaner
@@ -120,6 +113,7 @@ packages:
       - font-material-icons
       - font-material-symbols
   apt:
+    # Emacs는 setup 대상이 아니다 — 각 머신에서 직접 설치한다(소스 빌드 등). apt/PPA로 얹지 않는다.
     # desktop/WSL 공통 (시스템 통합 계층) — CLI 전용.
     # GUI 프로그램은 desktop 전용: WSL은 GUI를 설치하지 않고 Windows 네이티브 앱을 쓴다.
     common:
@@ -132,7 +126,6 @@ packages:
       - alsa-utils
       - pulseaudio-utils # pactl (pipewire 데몬과 충돌 없음)
     desktop:
-      - emacs-pgtk       # ppa:ubuntuhandbook1/emacs (30.x, Wayland 네이티브)
       - wezterm          # apt.fury.io/wez repo (WSL은 Windows측 WezTerm 사용)
       - code             # packages.microsoft.com repo (WSL은 Windows측 VS Code 사용)
       - ffmpeg           # ~/Projects/fulang 비디오 파이프라인 의존성
@@ -145,7 +138,6 @@ packages:
     # 그쪽은 리눅스 fontconfig만 보므로 아래 fonts와 20-fonts-ubuntu가 WSL에도 적용된다.
     wsl:
       - wslu             # wslview 등
-      - emacs-nox        # apt로 얹는 터미널 전용 emacs (GUI 빌드 emacs-pgtk 대신)
     # 시스템 폰트는 GUI 렌더링용 — desktop/WSL 공통.
     # WSL 터미널 자체는 Windows측 폰트로 그려지지만, WSLg로 띄운 GUI 앱은 리눅스
     # fontconfig만 조회하고 /mnt/c의 Windows 폰트는 검색 경로 밖이라 보이지 않는다.
@@ -169,20 +161,11 @@ packages:
   snap:
     desktop:
       - firefox
-      - spotify
-      - telegram-desktop
   # 공식 deb 직배포 앱 (desktop 전용, dpkg -s로 멱등)
   deb:
     - name: obsidian
       dpkg_name: obsidian
       url: ""            # 빈 값 = GitHub API로 latest 조회 (10-packages-ubuntu 참조)
-    - name: slack
-      dpkg_name: slack-desktop
-      url: "https://downloads.slack-edge.com/desktop-releases/linux/x64/4.50.143/slack-desktop-4.50.143-amd64.deb"
-    - name: discord
-      dpkg_name: discord
-      url: "https://discord.com/api/download?platform=linux&format=deb"
-      # slack 버전 업그레이드 시 url의 버전만 교체 (고정 latest URL 없음)
   winget:
     ids:
       # CLI (POSIX 전용 도구 제외 서브셋 — 스펙 §6.2. httpie는 winget에 CLI 없음 → 제외)
@@ -223,10 +206,6 @@ packages:
       # winget의 --id --exact는 대소문자를 구분한다 (tailscale.* 는 매치 안 됨)
       - Tailscale.Tailscale
       - AgileBits.1Password
-      - SlackTechnologies.Slack
-      - Discord.Discord
-      - Telegram.TelegramDesktop
-      - Spotify.Spotify
       - VideoLAN.VLC
       - Obsidian.Obsidian
   fonts:

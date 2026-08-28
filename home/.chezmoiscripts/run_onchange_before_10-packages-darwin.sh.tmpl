@@ -14,8 +14,8 @@ tap "{{ . }}"
 brew "{{ . }}"
 {{ end -}}
 {{ range .packages.brew.darwin_only_formulae -}}
-{{ if eq . "d12frosted/emacs-plus/emacs-plus@30" -}}
-brew "{{ . }}", args: ["with-xwidgets", "with-imagemagick"]
+{{ if hasPrefix "d12frosted/emacs-plus/emacs-plus@" . -}}
+brew "{{ . }}", args: ["with-xwidgets"]
 {{ else -}}
 brew "{{ . }}"
 {{ end -}}

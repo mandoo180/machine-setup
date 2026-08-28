@@ -52,19 +52,21 @@ update    # 패키지 업그레이드(brew/apt/winget) + rebuild
 ## 주의사항
 
 - **WSL은 apt로 GUI 프로그램을 설치하지 않는다** — 브라우저·에디터·터미널은 Windows 네이티브(winget) 앱을,
-  한글 입력은 Windows IME를 쓴다. 따라서 WSL 컨텍스트에서는 firefox/fcitx5\*/wezterm/vscode/emacs-pgtk를
-  건너뛴다(emacs는 터미널 전용 `emacs-nox`, 링크는 `open`=`wslview`로 Windows에서 열림).
+  한글 입력은 Windows IME를 쓴다. 따라서 WSL 컨텍스트에서는 firefox/fcitx5\*/wezterm/vscode를
+  건너뛴다(링크는 `open`=`wslview`로 Windows에서 열림).
   **폰트는 예외로 WSL에도 설치한다** — WSLg로 GUI 앱을 직접 띄우면(소스 빌드 Emacs PGTK 등) 리눅스
   fontconfig만 조회하고 `/mnt/c`의 Windows 폰트는 검색 경로 밖이라 보이지 않는다
   ([상세](docs/troubleshooting.md#wsl-gui-앱이-windows에-설치된-폰트를-못-찾는다)).
   이미 설치된 기존 WSL 머신의 정리는 수동:
   `sudo apt-get purge -y firefox 'fcitx5*' wezterm code && sudo rm -f /etc/apt/sources.list.d/mozilla.list /etc/apt/preferences.d/mozilla`
-  (`apt-get install emacs-nox`가 `emacs-pgtk`는 충돌로 자동 교체)
+- **setup이 설치하지 않는 앱** — Emacs(Ubuntu desktop·WSL 모두)와 Slack·Discord·Telegram·Spotify는
+  필요할 때 각 머신에서 직접 설치한다. Emacs는 macOS만 예외로 `emacs-plus@31`을 brew로 설치한다.
+  기존 Ubuntu/WSL 머신에 남은 emacs PPA 정리는 수동: `sudo add-apt-repository -r ppa:ubuntuhandbook1/emacs`
 - WSL에서 GUI 앱을 띄웠는데 **작업표시줄 아이콘만 뜨고 창이 안 보이면** 앱 문제가 아니라 WSLg 그래픽
   리디렉션 고장이다 — `grep use_gfxredir /mnt/wslg/weston.log`가 `0`이면 `wsl --shutdown` 후 재진입
   ([상세](docs/troubleshooting.md#wsl-gui-앱-창이-안-뜬다-작업표시줄-아이콘만-보임))
 - Nerd Fonts 버전 업그레이드: `packages.yaml`의 `nerd_version` 수정 후, 각 머신에서 `rm -rf ~/.local/share/fonts/<이름>` 후 `rebuild` (다운로드 마커가 디렉터리라서)
-- deb 직배포 앱(obsidian/slack/discord)은 `update`로 업그레이드되지 않음 — 앱 내 업데이트 또는 재설치
+- deb 직배포 앱(obsidian)은 `update`로 업그레이드되지 않음 — 앱 내 업데이트 또는 재설치
 - 기존 nix 머신에는 적용하지 않는다 (깨끗한 OS 전제 — 스펙 §2)
 
 ## 테스트

@@ -35,7 +35,7 @@ curl.exe -fsSLo windows.ps1 https://raw.githubusercontent.com/mandoo180/machine-
 설치 목록 (단일 소스 packages.yaml):
 - CLI: ripgrep, fd, bat, eza, fzf, zoxide, jq, yq, delta, lazygit, dust, duf, procs, tlrc, neovim, emacs, gh, glab, chezmoi
 - 런타임: Node LTS, Bun, uv, Go, Rustup, OpenJDK 21
-- GUI: PowerShell, Windows Terminal, PowerToys, WezTerm, VS Code, Docker Desktop, Tailscale, 1Password, Slack, Discord, Telegram, Spotify, VLC, Obsidian
+- GUI: PowerShell, Windows Terminal, PowerToys, WezTerm, VS Code, Docker Desktop, Tailscale, 1Password, VLC, Obsidian
 
 3. 폰트 — 20-fonts-windows
 
