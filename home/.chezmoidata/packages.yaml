@@ -202,12 +202,12 @@ packages:
       - Microsoft.PowerToys
       - wez.wezterm
       - Microsoft.VisualStudioCode
-      - Docker.DockerDesktop
+      # - Docker.DockerDesktop
       # winget의 --id --exact는 대소문자를 구분한다 (tailscale.* 는 매치 안 됨)
-      - Tailscale.Tailscale
-      - AgileBits.1Password
-      - VideoLAN.VLC
-      - Obsidian.Obsidian
+      # - Tailscale.Tailscale
+      # - AgileBits.1Password
+      # - VideoLAN.VLC
+      # - Obsidian.Obsidian
   fonts:
     nerd_version: "3.4.0"
     # asset명 주의: SauceCodePro → SourceCodePro.zip, Terminess → Terminus.zip
