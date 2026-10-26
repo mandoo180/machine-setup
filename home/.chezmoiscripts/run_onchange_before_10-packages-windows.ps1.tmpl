@@ -8,12 +8,13 @@ $ids = @(
 {{ end -}}
   $null
 ) | Where-Object { $_ }
+# --source winget 고정: msstore 인증서 고정 실패(사내망 TLS 검사) 시 소스 모호성으로 설치 거부됨
 foreach ($id in $ids) {
-  winget list --id $id --exact --accept-source-agreements 2>$null | Out-Null
+  winget list --id $id --exact --source winget --accept-source-agreements 2>$null | Out-Null
   if ($LASTEXITCODE -eq 0) {
     Write-Host "   already installed: $id"
   } else {
-    winget install --id $id --exact --silent --accept-package-agreements --accept-source-agreements
+    winget install --id $id --exact --source winget --silent --accept-package-agreements --accept-source-agreements
     if ($LASTEXITCODE -ne 0) { Write-Warning "install failed: $id" }
   }
 }

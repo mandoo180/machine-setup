@@ -11,15 +11,22 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 
 Write-Host ">> [bootstrap] 최소 의존성 (git, chezmoi, PowerShell 7)"
+# --source winget 고정: 사내망 TLS 검사가 msstore 소스의 인증서 고정을 깨면(0x8a15005e)
+# winget이 "--source를 지정하라"며 설치를 거부한다. 모든 ID가 winget 커뮤니티 소스 소속.
 foreach ($id in @('Git.Git', 'twpayne.chezmoi', 'Microsoft.PowerShell')) {
-  winget list --id $id --exact --accept-source-agreements 2>$null | Out-Null
+  winget list --id $id --exact --source winget --accept-source-agreements 2>$null | Out-Null
   if ($LASTEXITCODE -ne 0) {
-    winget install --id $id --exact --silent --accept-package-agreements --accept-source-agreements
+    winget install --id $id --exact --source winget --silent --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) { Write-Warning "install failed: $id (exit $LASTEXITCODE)" }
   }
 }
 
 # PATH 갱신 (이 세션에서 chezmoi/git을 바로 쓰기 위함)
 $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+
+if (-not (Get-Command chezmoi -ErrorAction SilentlyContinue)) {
+  throw "chezmoi가 설치되지 않았습니다. 위 winget 출력을 확인하십시오."
+}
 
 Write-Host ">> [bootstrap] chezmoi init --apply ($repo)"
 chezmoi init --apply $repo
