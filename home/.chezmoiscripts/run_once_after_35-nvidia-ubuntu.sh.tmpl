@@ -1,0 +1,27 @@
+{{ if and (eq .chezmoi.os "linux") (not .isWSL) -}}
+#!/bin/bash
+# NVIDIA GPU가 있는 Ubuntu desktop에 Ubuntu 권장 독점 드라이버를 설치한다.
+# (원본: ~/Projects/nix hosts/desktop/nvidia.nix — nouveau는 GeForce 940MX에서
+#  HDMI InfoFrame 설정이 실패해(ret:-22) 모니터로 오디오가 나가지 않았다.)
+# 드라이버 브랜치는 하드코딩하지 않고 ubuntu-drivers의 권장값을 따른다 —
+# Maxwell/Pascal은 580이 마지막 브랜치라 ubuntu-drivers가 알아서 580을 고른다.
+# WSL은 Windows 호스트 드라이버를 쓰므로 대상이 아니다.
+set -euo pipefail
+
+if ! command -v lspci >/dev/null 2>&1 || ! lspci | grep -qi 'vga.*nvidia\|3d.*nvidia'; then
+  echo ">> [35-nvidia-ubuntu] NVIDIA GPU 없음 — 건너뜀"
+  exit 0
+fi
+if ! command -v ubuntu-drivers >/dev/null 2>&1; then
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ubuntu-drivers-common
+fi
+
+if dpkg -l 'nvidia-driver-*' 2>/dev/null | grep -q '^ii'; then
+  echo ">> [35-nvidia-ubuntu] NVIDIA 드라이버 이미 설치됨 — 생략"
+  exit 0
+fi
+
+echo ">> [35-nvidia-ubuntu] 권장 드라이버: $(ubuntu-drivers devices 2>/dev/null | grep recommended || echo '?')"
+sudo ubuntu-drivers install
+echo ">> [35-nvidia-ubuntu] done — 재부팅 후 적용됩니다 (nvidia-smi로 확인)"
+{{ end -}}

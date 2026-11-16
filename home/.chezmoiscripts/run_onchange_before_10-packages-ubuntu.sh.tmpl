@@ -32,9 +32,12 @@ if [ ! -f /etc/apt/sources.list.d/vscode.list ]; then
 fi
 
 # tailscale (desktop만 — 스펙 §10)
+# codename은 docker repo와 같은 방식으로 동적으로 — noble 고정이면 26.04(resolute)에서
+# 구버전 repo를 물게 된다. pkgs.tailscale.com은 릴리스별 경로를 제공한다(resolute 실측).
 if [ ! -f /etc/apt/sources.list.d/tailscale.list ]; then
-  curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
-  curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
+  ts_codename="$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")"
+  curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/${ts_codename}.noarmor.gpg" | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+  curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/${ts_codename}.tailscale-keyring.list" | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
 fi
 {{ end -}}
 
