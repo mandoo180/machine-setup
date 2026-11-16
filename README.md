@@ -37,7 +37,7 @@ update    # 패키지 업그레이드(brew/apt/winget) + rebuild
 - `home/` — chezmoi source (dotfiles + `.chezmoiscripts`)
 - `home/.chezmoidata/packages.yaml` — 패키지 목록 단일 소스
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) — 운용 중 겪은 문제와 복구 절차
-- 실행 순서: 10-packages(before) → dotfiles → 15-locale(ubuntu) → 20-fonts → 25-omz → 30-os → 40-services → 50-input-method(desktop)
+- 실행 순서: 10-packages(before) → dotfiles → 15-locale(ubuntu) → 20-fonts → 25-omz → 30-os → 35-nvidia(desktop) → 40-services → 50-input-method(desktop)
 
 ## 수동 검증 체크리스트 (부트스트랩 후)
 
@@ -46,6 +46,7 @@ update    # 패키지 업그레이드(brew/apt/winget) + rebuild
 - [ ] `git log`에서 delta 페이저 동작, `git config user.email` 확인
 - [ ] `docker run hello-world` (WSL: `wsl --shutdown` 후 재진입 + `rebuild` 필요할 수 있음)
 - [ ] 한글 입력: desktop = Super+Space(ibus) / WSL = Windows IME (Linux 입력기 미설치 — 별도 설정 없음)
+- [ ] desktop(NVIDIA GPU): 재부팅 후 `nvidia-smi` — 35-nvidia가 `ubuntu-drivers` 권장 드라이버를 설치함
 - [ ] desktop: `sudo tailscale up --ssh` (최초 1회), **원격 SSH 쓸 거면 `~/.ssh/authorized_keys` 먼저 배치** (패스워드 인증 꺼져 있음)
 - [ ] Windows: 새 pwsh 7 창에서 Ctrl+r(PSFzf), `z <dir>`(zoxide)
 

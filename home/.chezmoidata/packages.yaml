@@ -21,6 +21,7 @@ packages:
       - procs
       - gh
       - glab
+      - cloudflared  # Cloudflare tunnel (desktop의 weirdworld quick tunnel 등)
       - lazygit
       - git-delta
       - direnv
@@ -129,6 +130,11 @@ packages:
       - wezterm          # apt.fury.io/wez repo (WSL은 Windows측 WezTerm 사용)
       - code             # packages.microsoft.com repo (WSL은 Windows측 VS Code 사용)
       - ffmpeg           # ~/Projects/fulang 비디오 파이프라인 의존성
+      - imagemagick      # ~/Projects/storyfluent ops cover contactsheet(`montage`) 의존성
+      - libnss3          # Remotion(fulang)이 받는 chrome-headless-shell 런타임 (nspr/expat 동반).
+                         # firefox가 snap이라 데스크톱 기본 설치에 딸려오지 않는다
+      - openfortivpn     # ~/Projects/openfortivpn-douzone (vpn-douzone)
+      - pciutils         # lspci — 35-nvidia-ubuntu의 GPU 감지
       - vlc
       - gimp
       - ibus-hangul
