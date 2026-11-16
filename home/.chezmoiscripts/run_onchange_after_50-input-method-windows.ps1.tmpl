@@ -2,42 +2,17 @@
 $ErrorActionPreference = 'Stop'
 Write-Host ">> [50-input-method-windows] 한국어 입력기/서식"
 
-# TIP 문자열은 Windows 고정값이다 (Microsoft IME(한국어) / US 키보드).
+# TIP 문자열은 Windows 고정값이다 (Microsoft IME(한국어)).
 $koTip = '0412:{A028AE76-01B1-46C2-99C4-ACD9858AE02F}{B5FE1F02-D5F2-4445-9C03-C568F23C99A1}'
-$usTip = '0409:00000409'
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
   [Security.Principal.WindowsBuiltInRole]::Administrator)
 
-# 1. 한국어 IME 등록
-# ko가 언어 목록에 있는데도 InputMethodTips가 비어 있는 경우가 있다 — 한국 출고
-# OEM 머신이 그렇다(언어팩만 깔려 나옴). 그 상태는 "한국어가 설치돼 있는데 한글은
-# 못 치는" 머신이라 목록만 보고 판단하면 놓친다. tip 유무로 판정한다.
-# 언어팩이 아예 없는 머신이면 ko 추가 시 Windows가 기본 입력(Basic typing)을
-# 자동으로 내려받는다. 그래도 IME가 안 뜨면 설정 > 언어에서 기본 입력을 추가한다.
-$list = Get-WinUserLanguageList
-$ko = $null
-foreach ($e in $list) { if ($e.LanguageTag -eq 'ko') { $ko = $e } }
-$changed = $false
-if (-not $ko) {
-  $list.Add('ko')
-  foreach ($e in $list) { if ($e.LanguageTag -eq 'ko') { $ko = $e } }
-  $changed = $true
-  Write-Host ">> [50-input-method-windows] 언어 목록에 ko 추가"
-}
-if ($ko -and ($ko.InputMethodTips -notcontains $koTip)) {
-  $ko.InputMethodTips.Add($koTip)
-  $changed = $true
-  Write-Host ">> [50-input-method-windows] 한국어 IME(0412) 등록"
-}
-if ($changed) { Set-WinUserLanguageList -LanguageList $list -Force }
-
-# 2. 표시 언어는 영어로 고정
-# ko가 목록 0번이고 ko-KR 언어팩이 깔려 있으면 다음 로그인에 Windows UI 전체가
-# 한국어로 넘어간다(위 Set-WinUserLanguageList가 경고로 알려주는 그 동작이다).
-# UI는 영어로 두고 입력·서식만 한국어로 쓰는 게 목표이므로 명시적으로 못박는다.
-# 목록 순서를 뒤집지 않고 오버라이드를 쓰는 이유: 순서를 바꾸면 표시 언어뿐 아니라
-# 앱 현지화·지역 콘텐츠 우선순위까지 통째로 영어로 끌려간다.
+# 1. 표시 언어는 영어로 고정 — 언어 목록을 건드리기 전에 먼저 못박는다
+# 아래 2번에서 en-US를 목록에서 빼면 목록에 남는 언어는 ko뿐이고, ko-KR 언어팩이
+# 깔려 있으면 다음 로그인에 Windows UI 전체가 한국어로 넘어간다. 표시 언어는
+# 오버라이드로 고정하므로 언어 목록과 무관하게 영어로 유지된다(en-US는 OS 기본
+# 언어팩이라 목록에서 빠져도 설치 상태는 그대로다).
 $uiCur = Get-WinUILanguageOverride
 $uiCurName = if ($uiCur) { $uiCur.Name } else { '' }
 if ($uiCurName -ne 'en-US') {
@@ -45,13 +20,32 @@ if ($uiCurName -ne 'en-US') {
   Write-Host ">> [50-input-method-windows] 표시 언어 en-US 고정"
 }
 
-# 3. 기본 입력기는 영어
-# 새 창/로그인이 한글 모드로 시작하면 터미널·IDE 단축키가 전부 어긋난다.
+# 2. 입력기는 한국어 IME 하나만
+# Windows는 언어마다 입력기를 최소 1개 붙이므로(비우면 기본 키보드를 다시 넣는다)
+# US 키보드를 없애려면 en-US를 언어 목록에서 통째로 빼야 한다. 영문 입력은 한국어
+# IME의 영문 모드(오른쪽 Alt)로 하므로 Win+Space 레이아웃 전환이 필요 없어진다.
+# ko가 목록에 있어도 InputMethodTips가 비어 있는 경우가 있다 — 한국 출고 OEM
+# 머신이 그렇다(언어팩만 깔려 나옴). 그래서 목록 유무가 아니라 tip 구성으로 판정한다.
+# 언어팩이 아예 없는 머신이면 ko 추가 시 Windows가 기본 입력(Basic typing)을
+# 자동으로 내려받는다. 그래도 IME가 안 뜨면 설정 > 언어에서 기본 입력을 추가한다.
+$list = Get-WinUserLanguageList
+$tips = @($list | ForEach-Object { $_.InputMethodTips })
+if ($list.Count -ne 1 -or $list[0].LanguageTag -ne 'ko' -or $tips.Count -ne 1 -or $tips[0] -ne $koTip) {
+  $new = New-WinUserLanguageList ko
+  $new[0].InputMethodTips.Clear()
+  $new[0].InputMethodTips.Add($koTip)
+  Set-WinUserLanguageList -LanguageList $new -Force
+  Write-Host ">> [50-input-method-windows] 입력기 = 한국어 IME(0412) 단독 (이전: $($list.LanguageTag -join ', '))"
+}
+
+# 3. 기본 입력기 = 한국어 IME
+# 목록에 없는 US 키보드를 기본으로 가리키면 Windows가 엉뚱한 폴백을 고른다.
+# 한국어 IME는 새 창을 영문 모드로 시작하므로 터미널·IDE 단축키는 그대로 동작한다.
 $defCur = Get-WinDefaultInputMethodOverride
 $defCurTip = if ($defCur) { $defCur.InputMethodTip } else { '' }
-if ($defCurTip -ne $usTip) {
-  Set-WinDefaultInputMethodOverride -InputTip $usTip
-  Write-Host ">> [50-input-method-windows] 기본 입력기 = US"
+if ($defCurTip -ne $koTip) {
+  Set-WinDefaultInputMethodOverride -InputTip $koTip
+  Write-Host ">> [50-input-method-windows] 기본 입력기 = 한국어 IME"
 }
 
 # 4. 지역 서식 ko-KR (날짜 2026-08-15, 통화 ₩)
@@ -78,5 +72,5 @@ if ($acp -ne '949') {
   }
 }
 
-Write-Host ">> [50-input-method-windows] done (한/영: 오른쪽 Alt, 한자: 오른쪽 Ctrl, 레이아웃 전환: Win+Space)"
+Write-Host ">> [50-input-method-windows] done (한/영: 오른쪽 Alt, 한자: 오른쪽 Ctrl)"
 {{ end -}}

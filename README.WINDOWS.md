@@ -27,7 +27,7 @@ curl.exe -fsSLo windows.ps1 https://raw.githubusercontent.com/mandoo180/machine-
 ├────────┼──────────────────────────┼──────────────────────────┤
 │ after  │ 30-os-settings-windows   │ 레지스트리 시스템 설정   │
 ├────────┼──────────────────────────┼──────────────────────────┤
-│ after  │ 50-input-method-windows  │ 한국어 IME + 지역 서식   │
+│ after  │ 50-input-method-windows  │ 한국어 IME 단독 + 서식  │
 └────────┴──────────────────────────┴──────────────────────────┘
 
 패키지 설치는 멱등(winget list로 이미 있으면 skip)하고 best-effort입니다 — 개별 ID 실패 시 경고만 남기고 계속(사내망 차단·winget ID 변경 대비). packages.yaml 변경 시에만 재실행됩니다.
@@ -66,10 +66,10 @@ Documents/PowerShell/Microsoft.PowerShell_profile.ps1이 배포되어 PS7 셸을
 
 Linux의 50-input-method-gnome(ibus-hangul)에 대응하는 Windows 쪽 단계입니다. 원칙은 "표시 언어만 영어, 나머지는 한국어":
 
-- 한국어 IME(Microsoft IME, 0412) 등록 — ko가 언어 목록에 있어도 InputMethodTips가 비어 있으면 한글을 못 칩니다. 한국 출고 OEM 머신이 실제로 이 상태로 나오므로(언어팩만 설치됨) 목록 유무가 아니라 tip 유무로 판정합니다.
-- 표시 언어 en-US 고정 — ko가 목록 0번이고 ko-KR 언어팩이 있으면 다음 로그인에 UI 전체가 한국어로 넘어갑니다. 목록 순서를 뒤집는 대신 Set-WinUILanguageOverride를 쓰는 이유는, 순서를 바꾸면 앱 현지화·지역 콘텐츠 우선순위까지 같이 끌려가기 때문입니다.
-- 기본 입력기 = US — 새 창이 한글 모드로 열리면 터미널·IDE 단축키가 어긋납니다.
+- 표시 언어 en-US 고정 — 언어 목록에 ko만 남고 ko-KR 언어팩이 있으면 다음 로그인에 UI 전체가 한국어로 넘어갑니다. Set-WinUILanguageOverride로 목록과 무관하게 영어를 못박고, 목록을 바꾸기 전에 먼저 실행합니다.
+- 입력기 = 한국어 IME(Microsoft IME, 0412) 단독 — Windows는 언어마다 입력기를 최소 1개 붙이므로 US 키보드를 없애려고 en-US를 언어 목록에서 뺍니다(en-US 언어팩은 OS 기본이라 설치 상태는 유지). 영문은 IME의 영문 모드로 칩니다. ko가 목록에 있어도 InputMethodTips가 비어 있는 OEM 머신이 있어 목록 유무가 아니라 tip 구성으로 판정합니다.
+- 기본 입력기 = 한국어 IME — 한국어 IME는 새 창을 영문 모드로 시작하므로 터미널·IDE 단축키는 그대로입니다.
 - 지역 서식 ko-KR — 날짜 2026-08-15, 통화 ₩. 표시 언어와는 독립된 축이라 UI가 영어여도 서식만 한국어로 둘 수 있습니다.
 - 비유니코드 로캘 ko-KR(CP949) — 레거시 한국어 앱의 글자 깨짐을 막습니다. 이 항목만 관리자 권한과 재부팅이 필요하므로, 비관리자 실행이면 apply를 중단하지 않고 수동 실행 명령만 안내합니다(50-input-method-gnome이 비GUI 세션을 다루는 방식과 동일).
 
-한/영 전환은 오른쪽 Alt, 한자는 오른쪽 Ctrl입니다 — 101키 US 키보드에는 전용 키가 없어 Windows가 이 매핑을 씁니다. 레이아웃 자체를 바꾸려면 Win+Space.
+한/영 전환은 오른쪽 Alt, 한자는 오른쪽 Ctrl입니다 — 101키 US 키보드에는 전용 키가 없어 Windows가 이 매핑을 씁니다. 입력기가 하나뿐이라 Win+Space 레이아웃 전환은 쓰지 않습니다.
