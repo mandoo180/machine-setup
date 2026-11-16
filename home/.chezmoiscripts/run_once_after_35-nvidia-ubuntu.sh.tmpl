@@ -8,7 +8,11 @@
 # WSL은 Windows 호스트 드라이버를 쓰므로 대상이 아니다.
 set -euo pipefail
 
-if ! command -v lspci >/dev/null 2>&1 || ! lspci | grep -qi 'vga.*nvidia\|3d.*nvidia'; then
+# lspci 출력을 변수로 받은 뒤 검사한다. `lspci | grep -q`는 grep이 첫 매치에서 먼저
+# 끝나 lspci가 SIGPIPE(141)로 죽고, pipefail 때문에 파이프 전체가 실패로 판정되어
+# GPU가 있어도 "없음"으로 빠진다 (desktop 26.04 실측: NVIDIA가 목록 중간에 있을 때).
+gpus="$(command -v lspci >/dev/null 2>&1 && lspci 2>/dev/null || true)"
+if ! grep -qiE '(vga|3d).*nvidia' <<<"$gpus"; then
   echo ">> [35-nvidia-ubuntu] NVIDIA GPU 없음 — 건너뜀"
   exit 0
 fi
