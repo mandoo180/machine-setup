@@ -64,8 +64,7 @@ packages:
       - grep
       - gnu-sed
       - gawk
-      # macOS 에 아예 없는 GNU 명령(timeout·tac·nproc·shuf·numfmt)은 원래 이름으로도 쓸 수 있게
-      # ~/.local/bin 에 g 접두 판으로 링크한다(home/dot_local/bin/symlink_*) — BSD 기본 도구는 가리지 않는다
+      # coreutils 는 BSD 와 겹치는 이름만 g 접두로 두고, macOS 에 없는 이름(timeout·tac·nproc·shuf·numfmt 등)은 그대로 링크한다
       - openjdk@21   # Java 21 LTS(winget 의 Microsoft.OpenJDK.21 과 같은 판). /usr/bin/java 는 ~/Library/Java 링크로
       - colima
       - docker       # CLI만 (데몬은 colima)
