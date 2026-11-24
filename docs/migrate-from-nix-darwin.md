@@ -42,6 +42,9 @@ HOMEBREW_BUNDLE_NO_UPGRADE=1 chezmoi apply      # 이미 깔린 formula 를 이 
 - 손으로 깐 글꼴 파일이 cask 와 같은 이름이면 20-fonts 의 `brew install --cask` 가 실패한다. 그 파일을 옮긴 뒤 다시 적용한다.
 - Docker Desktop 이 있으면 40-services 는 colima 를 띄우지 않는다(띄우면 docker context 가 바뀐다). `docker` formula(CLI)는
   Docker Desktop cask 의 셸 자동완성 링크만 덮어쓴다 — 되돌리려면 `brew unlink --formula docker && brew link --cask docker-desktop`.
+- `HOMEBREW_BUNDLE_NO_UPGRADE=1` 이어도 새 formula 가 요구하면 의존성은 올라간다(예: neovim 이 tree-sitter 를 올림). 그러면
+  옛 판에 링크된 소스 빌드 keg(emacs-plus 등)가 dylib 을 잃고 뜨지 않는다. 적용 뒤
+  `otool -L /Applications/Emacs.app/Contents/MacOS/Emacs` 로 없는 라이브러리가 없는지 보고, 있으면 `brew reinstall emacs-plus@31`.
 - 큰 bottle(llvm·openjdk 등) 다운로드가 끊기면 10-packages 가 실패하고 dotfile 은 쓰이지 않는다. `HOMEBREW_CURL_RETRIES=10` 으로 다시 적용한다.
 - LaunchAgent 는 실행 파일·PATH 를 Homebrew 의 `opt` 경로(`/opt/homebrew/opt/<formula>/bin/...`)로 고친다.
   Cellar 경로(`/opt/homebrew/Cellar/<formula>/<판>/...`)는 `brew upgrade` 뒤 사라진다. 고친 뒤
