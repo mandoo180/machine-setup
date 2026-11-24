@@ -40,8 +40,9 @@ HOMEBREW_BUNDLE_NO_UPGRADE=1 chezmoi apply      # 이미 깔린 formula 를 이 
 - PATH 는 `~/.config/zsh/path.zsh` 한 곳이다. `~/.zshenv` 와 `~/.zprofile` 이 함께 읽는다 — nix-darwin 을 지우면
   macOS 기본 `/etc/zprofile` 의 `path_helper` 가 로그인 셸에서 `/usr/bin` 을 Homebrew 앞으로 당기기 때문이다.
 - 손으로 깐 글꼴 파일이 cask 와 같은 이름이면 20-fonts 의 `brew install --cask` 가 실패한다. 그 파일을 옮긴 뒤 다시 적용한다.
-- Docker Desktop 이 있으면 40-services 는 colima 를 띄우지 않는다(띄우면 docker context 가 바뀐다). `docker` formula(CLI)는
-  Docker Desktop cask 의 셸 자동완성 링크만 덮어쓴다 — 되돌리려면 `brew unlink --formula docker && brew link --cask docker-desktop`.
+- Docker Desktop(`/Applications/Docker.app`)이 있으면 10-packages 는 `docker` formula 를 깔지 않고 40-services 는 colima 를 띄우지 않는다
+  (formula 는 Docker Desktop 의 `docker` 링크·셸 자동완성을 덮어쓰고, colima 는 docker context 를 바꾼다). 이 조건이 생기기 전에 이미
+  formula 가 깔렸다면 `brew unlink --formula docker && brew link --cask docker-desktop` 으로 되돌린다.
 - `HOMEBREW_BUNDLE_NO_UPGRADE=1` 이어도 새 formula 가 요구하면 의존성은 올라간다(예: neovim 이 tree-sitter 를 올림). 그러면
   옛 판에 링크된 소스 빌드 keg(emacs-plus 등)가 dylib 을 잃고 뜨지 않는다. 적용 뒤
   `otool -L /Applications/Emacs.app/Contents/MacOS/Emacs` 로 없는 라이브러리가 없는지 보고, 있으면 `brew reinstall emacs-plus@31`.
