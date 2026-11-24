@@ -1,0 +1,13 @@
+# Managed by chezmoi — 수정은 ~/Projects/machine-setup에서.
+# 모든 zsh(대화형·비대화형·로그인)가 읽는다. 대화형 설정은 ~/.zshrc.
+source "$HOME/.config/zsh/path.zsh"
+
+# Environment
+export EDITOR="emacsclient -a nvim"
+export VISUAL="emacsclient -a nvim"
+export PAGER="less"
+export LANG="en_US.UTF-8"
+export LC_ALL="en_US.UTF-8"
+
+# 머신별·비공개 환경변수(저장소 밖, 있을 때만) — 회사 주소·토큰이 아닌 값이라도 공개 저장소에 두지 않을 것은 여기
+[ -f "$HOME/.zshenv.local" ] && source "$HOME/.zshenv.local"

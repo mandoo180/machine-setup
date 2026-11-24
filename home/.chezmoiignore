@@ -3,5 +3,17 @@ Documents
 {{ end }}
 {{ if eq .chezmoi.os "windows" }}
 .zshrc
+.zshenv
+.zprofile
+.config/zsh
 .config/bat
+{{ end }}
+{{ if ne .chezmoi.os "darwin" }}
+# macOS 전용: Homebrew GNU 명령 링크(g 접두 판), Java 21 을 /usr/bin/java 래퍼에 등록
+.local/bin/timeout
+.local/bin/tac
+.local/bin/nproc
+.local/bin/shuf
+.local/bin/numfmt
+Library
 {{ end }}

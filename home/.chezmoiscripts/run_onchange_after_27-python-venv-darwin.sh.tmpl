@@ -1,0 +1,20 @@
+{{ if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+# 기본 Python venv — python 설정 변경 시 재실행: {{ .packages.python | toJson | sha256sum }}
+# uv 가 관리하는 CPython 위에 pip 를 넣은 venv 를 만든다. Homebrew·uv 의 Python 은 PEP 668 로
+# `pip install` 을 막지만 venv 안은 된다. PATH 앞자리는 ~/.config/zsh/path.zsh.
+set -euo pipefail
+eval "$(/opt/homebrew/bin/brew shellenv)"
+venv="$HOME/.local/share/venvs/default"
+want="{{ .packages.python.version }}"
+have="$("$venv/bin/python3" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || true)"
+if [ "$have" != "$want" ]; then
+  echo ">> [27-python-venv-darwin] uv venv --seed --python $want ($venv)"
+  rm -rf "$venv"
+  uv python install "$want"
+  uv venv --seed --python "$want" "$venv"
+fi
+echo ">> [27-python-venv-darwin] pip install {{ range .packages.python.venv_packages }}{{ . }} {{ end }}"
+"$venv/bin/python3" -m pip install --quiet --upgrade {{ range .packages.python.venv_packages }}{{ . }} {{ end }}
+echo ">> [27-python-venv-darwin] done"
+{{ end -}}

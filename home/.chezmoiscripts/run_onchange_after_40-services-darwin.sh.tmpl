@@ -3,7 +3,11 @@
 set -euo pipefail
 eval "$(/opt/homebrew/bin/brew shellenv)"
 echo ">> [40-services-darwin] colima (docker 엔진)"
-if ! brew services list | grep -E '^colima[[:space:]]+started' >/dev/null 2>&1; then
+# Docker Desktop 이 이미 있는 머신(옛 구성에서 옮긴 Mac 등)은 colima 를 띄우지 않는다 —
+# colima 가 시작하면 docker context 를 colima 로 바꿔 Docker Desktop 쪽 컨테이너·볼륨이 안 보인다
+if [ -d /Applications/Docker.app ]; then
+  echo ">> Docker Desktop 이 있어 colima 를 건너뜁니다 (colima 로 옮기려면 Docker Desktop 을 지우고 rebuild)"
+elif ! brew services list | grep -E '^colima[[:space:]]+started' >/dev/null 2>&1; then
   brew services start colima
   echo ">> colima 최초 기동은 VM 생성으로 수 분 걸릴 수 있습니다"
 fi

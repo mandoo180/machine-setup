@@ -6,6 +6,8 @@
 {{ if eq .chezmoi.os "darwin" -}}
 eval "$(/opt/homebrew/bin/brew shellenv)"
 {{ end -}}
+# brew shellenv 가 Homebrew 를 PATH 맨 앞에 다시 붙인다 — venv·node@24 가 앞서는 순서로 되돌린다(정본 ~/.config/zsh/path.zsh)
+source "$HOME/.config/zsh/path.zsh"
 
 # oh-my-zsh
 export ZSH="$HOME/.oh-my-zsh"
@@ -13,23 +15,37 @@ ZSH_THEME="lambda"
 plugins=(git sudo docker kubectl history colored-man-pages)
 [ -f "$ZSH/oh-my-zsh.sh" ] && source "$ZSH/oh-my-zsh.sh"
 
+# History — oh-my-zsh(lib/history.zsh) 뒤에 둔다
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=10000
+SAVEHIST=10000
+setopt HIST_FCNTL_LOCK HIST_IGNORE_DUPS HIST_IGNORE_SPACE SHARE_HISTORY
+unsetopt APPEND_HISTORY EXTENDED_HISTORY HIST_EXPIRE_DUPS_FIRST HIST_FIND_NO_DUPS HIST_IGNORE_ALL_DUPS HIST_SAVE_NO_DUPS
+
 # Emacs keybindings
 bindkey -e
 
-# Environment
-export EDITOR="emacsclient -a nvim"
-export VISUAL="emacsclient -a nvim"
-export PAGER="less"
-export LANG="en_US.UTF-8"
-export LC_ALL="en_US.UTF-8"
+# 환경변수·PATH 는 ~/.zshenv 와 ~/.config/zsh/path.zsh (비대화형 셸도 받도록)
 
-# PATH
-export PATH="$PATH:$HOME/.npm/bin"
-export PATH="$PATH:$HOME/.config/emacs/bin"
-export PATH="$PATH:$HOME/.bun/bin"
-export PATH="$PATH:$HOME/.local/bin"
-export PATH="$PATH:$HOME/.cargo/bin"
-export PATH="$PATH:$HOME/Projects/x"
+# 가벼운 Emacs(다른 init 폴더 ~/.emacs.light.d)와 그 클라이언트
+em() {
+  local args=()
+  for arg in "$@"; do
+    case "$arg" in
+      --daemon)    args+=("--daemon=em-server") ;;
+      --daemon=*)  args+=("--daemon=em-${arg#--daemon=}") ;;
+      *)           args+=("$arg") ;;
+    esac
+  done
+  emacs --init-directory ~/.emacs.light.d "${args[@]}"
+}
+emc() {
+  emacsclient -s em-server "$@"
+}
+
+alias e="emacsclient"
+alias v="nvim"
+alias ccc="claude --dangerously-skip-permissions"
 
 {{ if .isWSL -}}
 # --- WSL 전용 ---
@@ -75,8 +91,18 @@ alias update="sudo apt-get update && sudo apt-get upgrade -y && brew update && b
 command -v fzf >/dev/null 2>&1 && eval "$(fzf --zsh)"
 command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 
+{{ if eq .chezmoi.os "darwin" -}}
+# iTerm2 shell integration (iterm2.com/shell_integration 로 따로 받은 스크립트가 있을 때만)
+if [ "${TERM_PROGRAM:-}" = "iTerm.app" ] && [ -e "$HOME/.iterm2_shell_integration.zsh" ]; then
+  source "$HOME/.iterm2_shell_integration.zsh"
+fi
+{{ end }}
+
 # 개인 추가 설정 (있을 때만)
 [ -f "$HOME/Projects/x/x.sh" ] && source "$HOME/Projects/x/x.sh"
 
 # ERP10 개발 환경
 [ -f "$HOME/.comet-env" ] && . "$HOME/.comet-env"
+
+# 머신별·비공개 대화형 설정(저장소 밖, 있을 때만) — 회사 별칭·경로 등. 맨 끝이라 위 설정을 덮어쓸 수 있다
+[ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
