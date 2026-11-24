@@ -14,7 +14,9 @@ tap "{{ . }}"
 brew "{{ . }}"
 {{ end -}}
 {{ range .packages.brew.darwin_only_formulae -}}
-{{ if hasPrefix "d12frosted/emacs-plus/emacs-plus@" . -}}
+{{ if and (eq . "docker") (stat "/Applications/Docker.app") -}}
+# docker: Docker Desktop 이 CLI·자동완성을 준다 — formula 가 그 링크를 덮어쓰므로 건너뛴다(40-services 의 colima 와 같은 조건)
+{{ else if hasPrefix "d12frosted/emacs-plus/emacs-plus@" . -}}
 brew "{{ . }}", args: ["with-xwidgets"]
 {{ else -}}
 brew "{{ . }}"

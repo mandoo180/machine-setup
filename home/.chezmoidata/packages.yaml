@@ -67,7 +67,7 @@ packages:
       # coreutils 는 BSD 와 겹치는 이름만 g 접두로 두고, macOS 에 없는 이름(timeout·tac·nproc·shuf·numfmt 등)은 그대로 링크한다
       - openjdk@21   # Java 21 LTS(winget 의 Microsoft.OpenJDK.21 과 같은 판). /usr/bin/java 는 ~/Library/Java 링크로
       - colima
-      - docker       # CLI만 (데몬은 colima)
+      - docker       # CLI만 (데몬은 colima). Docker Desktop 이 있는 Mac 은 10-packages 가 건너뛴다
       - d12frosted/emacs-plus/emacs-plus@31
     casks:
       - arc
