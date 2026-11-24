@@ -1,0 +1,32 @@
+# Managed by chezmoi — 수정은 ~/Projects/machine-setup에서.
+# 모든 zsh 의 PATH 한 곳. ~/.zshenv(모든 zsh)가 읽고, 로그인 셸에서는 ~/.zprofile 이 한 번 더 읽는다
+# — macOS /etc/zprofile 의 path_helper 가 /usr/bin 을 Homebrew 앞으로 당기기 때문이다.
+# ~/.zshrc 도 brew shellenv(Homebrew 를 맨 앞에 다시 붙인다) 뒤에 다시 읽는다.
+# typeset -U: 같은 경로는 처음 것만 남는다 — 몇 번 읽어도 순서가 같다.
+typeset -U path
+{{ if eq .chezmoi.os "darwin" -}}
+_brew_prefix=/opt/homebrew
+{{ else -}}
+_brew_prefix=/home/linuxbrew/.linuxbrew
+{{ end -}}
+path=(
+{{- if eq .chezmoi.os "darwin" }}
+  "$HOME/.local/share/venvs/default/bin"   # python3·python·pip (27-python-venv-darwin)
+{{- end }}
+  "$_brew_prefix/opt/node@24/bin"          # Node 24 LTS (keg-only)
+  "$_brew_prefix/bin"
+  "$_brew_prefix/sbin"
+  "${path[@]}"
+  "$HOME/.npm/bin"
+  "$HOME/.config/emacs/bin"
+  "$HOME/.bun/bin"
+  "$HOME/.local/bin"
+  "$HOME/.cargo/bin"
+  "$HOME/go/bin"
+  "$HOME/Projects/x"
+{{- if eq .chezmoi.os "darwin" }}
+  "/Applications/Aseprite.app/Contents/MacOS"
+{{- end }}
+)
+unset _brew_prefix
+export PATH

@@ -5,8 +5,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SHELLCHECK="nix run nixpkgs#shellcheck --"
-command -v shellcheck >/dev/null 2>&1 && SHELLCHECK="shellcheck"
+if ! command -v shellcheck >/dev/null 2>&1; then
+  echo "!! shellcheck 가 없습니다 — packages.yaml 의 brew formulae 에 있으므로 rebuild, 또는 brew install shellcheck" >&2
+  exit 1
+fi
+SHELLCHECK="shellcheck"
 
 # 템플릿 → 린트 가능 텍스트 변환:
 # 순수 템플릿 태그 줄({{ if }}, {{ range }}, {{ end }} 등)은 줄 자체를 삭제하고
@@ -29,7 +32,7 @@ done
 
 # 2) 셸 템플릿: Go 템플릿 표현을 __TMPL__로 치환 후 검사. 오탐 제외:
 #    SC2034/SC2050/SC2154(치환 잔재), SC1091(source 대상 미추적 info)
-for f in home/.chezmoiscripts/*.sh.tmpl home/dot_zshrc.tmpl; do
+for f in home/.chezmoiscripts/*.sh.tmpl home/dot_zshrc.tmpl home/dot_zshenv.tmpl home/dot_zprofile.tmpl home/dot_config/zsh/*.zsh.tmpl; do
   [ -f "$f" ] || continue
   echo "shellcheck(tmpl): $f"
   strip_tmpl "$f" | $SHELLCHECK -s bash -e SC2034,SC2050,SC2154,SC1091 - || fail=1

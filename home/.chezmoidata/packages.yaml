@@ -40,12 +40,13 @@ packages:
       - watch
       - fswatch
       - pstree
-      - node
+      - node@24      # LTS 한 판 고정(winget 의 OpenJS.NodeJS.LTS 와 같은 줄기). keg-only → PATH 는 ~/.config/zsh/path.zsh
       - bun
       - uv           # Python은 uv가 관리
       - go
       - rustup       # PATH는 ~/.cargo/bin (zshrc에서 추가)
       - openjdk
+      - shellcheck   # tests/lint.sh
       - make         # GNU make (macOS에선 gmake로 설치됨)
       - cmake
       - llvm
@@ -56,12 +57,15 @@ packages:
     darwin_only_formulae:
       - git          # Ubuntu는 bootstrap에서 apt로 설치
       - zsh          # macOS 기본 zsh 최신화
+      - bash         # bash 5 — `#!/usr/bin/env bash` 스크립트용(/bin/bash 는 3.2). /bin/bash 셔뱅은 그대로
       - rename       # Linux에선 util-linux와 충돌 → Ubuntu는 apt로 설치
       - coreutils
       - findutils
       - grep
       - gnu-sed
       - gawk
+      # coreutils 는 BSD 와 겹치는 이름만 g 접두로 두고, macOS 에 없는 이름(timeout·tac·nproc·shuf·numfmt 등)은 그대로 링크한다
+      - openjdk@21   # Java 21 LTS(winget 의 Microsoft.OpenJDK.21 과 같은 판). /usr/bin/java 는 ~/Library/Java 링크로
       - colima
       - docker       # CLI만 (데몬은 colima)
       - d12frosted/emacs-plus/emacs-plus@31
@@ -113,6 +117,13 @@ packages:
       - font-fontawesome
       - font-material-icons
       - font-material-symbols
+  # 기본 Python venv — macOS 전용(~/.local/share/venvs/default, uv 관리 CPython, pip 포함).
+  # path.zsh 가 PATH 맨 앞에 두므로 python3·python·pip 가 이 venv 를 가리킨다. 바꾸면 27-python-venv-darwin 이 다시 돈다
+  python:
+    version: "3.13"
+    venv_packages:
+      - openpyxl
+      - pytest
   apt:
     # Emacs는 setup 대상이 아니다 — 각 머신에서 직접 설치한다(소스 빌드 등). apt/PPA로 얹지 않는다.
     # desktop/WSL 공통 (시스템 통합 계층) — CLI 전용.

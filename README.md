@@ -36,8 +36,10 @@ update    # 패키지 업그레이드(brew/apt/winget) + rebuild
 - `bootstrap/` — OS별 진입점 (최소 의존성 + chezmoi init --apply)
 - `home/` — chezmoi source (dotfiles + `.chezmoiscripts`)
 - `home/.chezmoidata/packages.yaml` — 패키지 목록 단일 소스
+- `home/dot_config/zsh/path.zsh.tmpl` — PATH 단일 소스(`~/.zshenv`·`~/.zprofile`·`~/.zshrc` 가 읽는다. macOS 는 기본 venv·node@24 가 맨 앞)
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) — 운용 중 겪은 문제와 복구 절차
-- 실행 순서: 10-packages(before) → dotfiles → 15-locale(ubuntu) → 20-fonts → 25-omz → 30-os → 35-nvidia(desktop) → 40-services → 50-input-method(desktop)
+- [`docs/migrate-from-nix-darwin.md`](docs/migrate-from-nix-darwin.md) — 기존 nix-darwin Mac 옮기기
+- 실행 순서: 10-packages(before) → dotfiles → 15-locale(ubuntu) → 20-fonts → 25-omz → 27-python-venv(macOS) → 30-os → 35-nvidia(desktop) → 40-services → 50-input-method(desktop)
 
 ## 수동 검증 체크리스트 (부트스트랩 후)
 
@@ -68,7 +70,10 @@ update    # 패키지 업그레이드(brew/apt/winget) + rebuild
   ([상세](docs/troubleshooting.md#wsl-gui-앱-창이-안-뜬다-작업표시줄-아이콘만-보임))
 - Nerd Fonts 버전 업그레이드: `packages.yaml`의 `nerd_version` 수정 후, 각 머신에서 `rm -rf ~/.local/share/fonts/<이름>` 후 `rebuild` (다운로드 마커가 디렉터리라서)
 - deb 직배포 앱(obsidian)은 `update`로 업그레이드되지 않음 — 앱 내 업데이트 또는 재설치
-- 기존 nix 머신에는 적용하지 않는다 (깨끗한 OS 전제 — 스펙 §2)
+- 부트스트랩은 깨끗한 OS 전제다(스펙 §2). 이미 nix-darwin 으로 쓰던 Mac 은 OS 재설치 없이
+  [`docs/migrate-from-nix-darwin.md`](docs/migrate-from-nix-darwin.md) 순서로 옮긴다(nix 를 지우기 전에 전환·확인)
+- 공개 저장소에 둘 수 없는 머신별 값(회사 주소, 업무용 별칭·PATH)은 저장소 밖 `~/.zshenv.local`(모든 zsh)·
+  `~/.zshrc.local`(대화형)에 둔다 — 있을 때만 읽힌다
 
 ## 테스트
 

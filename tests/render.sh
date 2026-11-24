@@ -7,8 +7,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ctx="$1"
 file="$2"
-CZ="nix run nixpkgs#chezmoi --"
-command -v chezmoi >/dev/null 2>&1 && CZ="chezmoi"
+if ! command -v chezmoi >/dev/null 2>&1; then
+  echo "!! chezmoi 가 없습니다 — bootstrap 이 설치한다. 또는 brew install chezmoi" >&2
+  exit 1
+fi
+CZ="chezmoi"
 tmp="${TMPDIR:-/tmp}/cz-render-$ctx"
 mkdir -p "$tmp"
 FORCE_WSL="$ctx" $CZ init --source "$(pwd)" --config "$tmp/chezmoi.toml" \

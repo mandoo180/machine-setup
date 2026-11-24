@@ -70,8 +70,10 @@ defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadRightC
 defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadThreeFingerDrag -bool true
 
 # --- Login window / Clock / Screensaver / Screenshots ---
-sudo defaults write /Library/Preferences/com.apple.loginwindow GuestEnabled -bool false
-sudo defaults write /Library/Preferences/com.apple.loginwindow DisableConsoleAccess -bool true
+# sudo 항목은 값이 다를 때만 쓴다 — 이미 맞으면(재적용, nix-darwin 에서 옮긴 머신) sudo 를 묻지 않는다
+loginwindow=/Library/Preferences/com.apple.loginwindow
+[ "$(defaults read "$loginwindow" GuestEnabled 2>/dev/null)" = 0 ] || sudo defaults write "$loginwindow" GuestEnabled -bool false
+[ "$(defaults read "$loginwindow" DisableConsoleAccess 2>/dev/null)" = 1 ] || sudo defaults write "$loginwindow" DisableConsoleAccess -bool true
 defaults write com.apple.menuextra.clock Show24Hour -bool true
 defaults write com.apple.menuextra.clock ShowDate -int 1
 defaults write com.apple.menuextra.clock ShowDayOfWeek -bool true
@@ -92,9 +94,11 @@ defaults write com.apple.DiskUtility DUDebugMenuEnabled -bool true
 defaults write com.apple.DiskUtility advanced-image-options -bool true
 
 # --- 시동음 ---
-sudo nvram StartupMute=%01
+[ "$(nvram StartupMute 2>/dev/null | awk '{print $2}')" = "%01" ] || sudo nvram StartupMute=%01
 
 # --- TouchID sudo (idempotent) ---
+# -f 는 링크를 따라간다: nix-darwin 의 /etc/static 링크도 지금은 통과하지만 nix-darwin 을 지우면 링크가 사라진다
+# — 그때는 docs/migrate-from-nix-darwin.md 대로 다시 만든다
 if [ ! -f /etc/pam.d/sudo_local ] || ! grep -q pam_tid.so /etc/pam.d/sudo_local; then
   echo "auth       sufficient     pam_tid.so" | sudo tee -a /etc/pam.d/sudo_local >/dev/null
 fi

@@ -3,5 +3,12 @@ Documents
 {{ end }}
 {{ if eq .chezmoi.os "windows" }}
 .zshrc
+.zshenv
+.zprofile
+.config/zsh
 .config/bat
+{{ end }}
+{{ if ne .chezmoi.os "darwin" }}
+# macOS 전용: Java 21 을 /usr/bin/java 래퍼에 등록(~/Library/Java)
+Library
 {{ end }}
